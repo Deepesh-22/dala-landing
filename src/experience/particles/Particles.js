@@ -5,14 +5,14 @@ import MorphSystem from './MorphSystem.js';
 
 /** Dala 8-hue palette */
 const DALA_COLORS = [
-  new THREE.Color(0xf5d76e), // yellow
-  new THREE.Color(0xc39bd3), // light purple
-  new THREE.Color(0x9b59b6), // purple
-  new THREE.Color(0x1abc9c), // teal
-  new THREE.Color(0x2ecc71), // green
-  new THREE.Color(0xffffff), // white
-  new THREE.Color(0xe74c3c), // coral
-  new THREE.Color(0x3498db), // blue
+  new THREE.Color(0xf5d76e),
+  new THREE.Color(0xc39bd3),
+  new THREE.Color(0x9b59b6),
+  new THREE.Color(0x1abc9c),
+  new THREE.Color(0x2ecc71),
+  new THREE.Color(0xffffff),
+  new THREE.Color(0xe74c3c),
+  new THREE.Color(0x3498db),
 ];
 
 function hash01(i) {
@@ -27,7 +27,6 @@ export default class Particles {
     this.shapes = generateAllShapes(this.count);
     this.morph = new MorphSystem({ count: this.count, shapes: this.shapes });
 
-    // Phase 3: boot on brain silhouette
     this.morph.setPair('brain', 'brain');
     this.morph.current.set(this.shapes.brain);
 
@@ -40,7 +39,8 @@ export default class Particles {
   }
 
   _createMesh() {
-    const s = 0.017;
+    // Smaller triangles → finer surface grain on detailed brain
+    const s = 0.012;
     const tri = new THREE.BufferGeometry();
     tri.setAttribute(
       'position',
@@ -57,7 +57,7 @@ export default class Particles {
     const mat = new THREE.MeshBasicMaterial({
       color: 0xffffff,
       transparent: true,
-      opacity: 0.95,
+      opacity: 0.92,
       depthWrite: false,
       side: THREE.DoubleSide,
     });
@@ -78,7 +78,7 @@ export default class Particles {
     this._dummy = new THREE.Object3D();
     this._scales = new Float32Array(this.count);
     for (let i = 0; i < this.count; i++) {
-      this._scales[i] = 0.7 + hash01(i + 99) * 0.6;
+      this._scales[i] = 0.75 + hash01(i + 99) * 0.5;
     }
 
     const pos = this.morph.current;
@@ -104,7 +104,7 @@ export default class Particles {
       this.mesh.rotation.y = this._timelineRotY || 0;
       this.mesh.rotation.x = this._timelineRotX || 0;
       if (this.mesh.material) {
-        this.mesh.material.opacity = 0.95 * (this._timelineOpacity ?? 1);
+        this.mesh.material.opacity = 0.92 * (this._timelineOpacity ?? 1);
       }
     }
 
@@ -122,7 +122,7 @@ export default class Particles {
 
       this._dummy.position.set(x, y, z);
       this._dummy.scale.setScalar(this._scales[i]);
-      this._dummy.rotation.z = elapsed * 0.15 + i * 0.37;
+      this._dummy.rotation.z = elapsed * 0.12 + i * 0.37;
       this._dummy.updateMatrix();
       this.mesh.setMatrixAt(i, this._dummy.matrix);
     }
