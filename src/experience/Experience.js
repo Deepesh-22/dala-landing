@@ -3,8 +3,8 @@
  * 1 = black canvas
  * 2 = + triangle particles + colors
  * 3 = + brain shape
- * 4 = + morph physics  ← current
- * 5 = + ambient + all shapes
+ * 4 = + morph physics
+ * 5 = + ambient + all shapes  ← current
  * 6 = + full scroll page
  */
 import * as THREE from 'three';
@@ -12,11 +12,12 @@ import Scene from './Scene.js';
 import Camera from './Camera.js';
 import Renderer from './Renderer.js';
 import Particles from './particles/Particles.js';
+import AmbientLayer from './particles/AmbientLayer.js';
 import { isWebGLAvailable } from './utils/device.js';
 
-export const BUILD_PHASE = 4;
+export const BUILD_PHASE = 5;
 
-/** Phase 4 auto-demo morph sequence (no scroll yet) */
+/** Full shape morph sequence (Phase 4/5 demo, no scroll yet) */
 const MORPH_SEQUENCE = [
   { from: 'brain', to: 'scatter', hold: 2.2, morph: 2.4 },
   { from: 'scatter', to: 'bulb', hold: 1.8, morph: 2.2 },
@@ -54,10 +55,9 @@ export default class Experience {
     this._running = false;
     this._frames = 0;
 
-    // Phase 4 sequencer state
     this._morphStep = 0;
     this._morphStepTime = 0;
-    this._morphPhase = 'hold'; // 'hold' | 'morph'
+    this._morphPhase = 'hold';
 
     this.scene = new Scene();
     this.camera = new Camera({ sizes: this.sizes });
@@ -78,12 +78,11 @@ export default class Experience {
 
       if (this.particles.morph) {
         if (BUILD_PHASE >= 4) {
-          // Start settled on brain, ready to morph
           const first = MORPH_SEQUENCE[0];
           this.particles.morph.setPair(first.from, first.to);
           this.particles.morph.setProgress(0);
           this.particles.morph.current.set(this.particles.shapes[first.from]);
-          this._applyMorphParams(0); // settled
+          this._applyMorphParams(0);
         } else if (BUILD_PHASE >= 3) {
           this.particles.morph.setPair('brain', 'brain');
           this.particles.morph.setProgress(0);
@@ -102,10 +101,16 @@ export default class Experience {
         }
       }
       this.particles._timelineRotY = 0;
-      this.onProgress(0.7);
+      this.onProgress(0.65);
     }
 
-    this.onProgress(0.9);
+    // Phase 5: ambient field — never morphs, always drifts in the void
+    if (BUILD_PHASE >= 5) {
+      this.ambient = new AmbientLayer({ scene: this.scene });
+      this.onProgress(0.85);
+    }
+
+    this.onProgress(0.95);
 
     this.onResize = this.onResize.bind(this);
     this.onVisibility = this.onVisibility.bind(this);
@@ -119,11 +124,9 @@ export default class Experience {
     console.log(`[Dala] BUILD_PHASE = ${BUILD_PHASE}`);
   }
 
-  /** Settle vs mid-morph physics */
   _applyMorphParams(progress) {
     if (!this.particles?.morph) return;
     const p = this.particles.morph.params;
-    // progress 0 or 1 → settle; mid → fluid
     const settle = 1 - Math.abs(progress - 0.5) * 2;
     p.springStrength = 4.2 + settle * 3.2;
     p.noiseStrength = 0.02 + (1 - settle) * 0.1;
@@ -132,7 +135,6 @@ export default class Experience {
     p.damping = 0.84 + settle * 0.05;
   }
 
-  /** Phase 4: timed morph loop */
   _updateMorphSequence(delta) {
     if (!this.particles?.morph || BUILD_PHASE < 4) return;
 
@@ -147,31 +149,26 @@ export default class Experience {
         this._morphPhase = 'morph';
         this._morphStepTime = 0;
         this.particles.morph.setPair(step.from, step.to);
-        // Soft kick so particles leave settle cleanly
         this.particles.morph.params.scatter = 0.15;
       }
     } else {
-      // morph phase: 0 → 1 over step.morph seconds
       const t = Math.min(1, this._morphStepTime / step.morph);
       this.particles.morph.setProgress(t);
       this._applyMorphParams(t);
 
       if (t >= 1) {
-        // Advance sequence — next hold starts settled on target
         this._morphStep = (this._morphStep + 1) % MORPH_SEQUENCE.length;
         this._morphPhase = 'hold';
         this._morphStepTime = 0;
         const next = MORPH_SEQUENCE[this._morphStep];
         this.particles.morph.setPair(next.from, next.to);
         this.particles.morph.setProgress(0);
-        // Snap current toward completed shape to avoid lag into hold
         const done = this.particles.shapes[step.to];
         if (done) this.particles.morph.current.set(done);
         this._applyMorphParams(0);
       }
     }
 
-    // Gentle rotation throughout
     const elapsed = this.clock.getElapsedTime();
     this.particles._timelineRotY = elapsed * 0.07;
     this.particles._timelineRotX = Math.sin(elapsed * 0.12) * 0.05;
