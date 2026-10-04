@@ -29,7 +29,7 @@ function hash01(i) {
  * - InstancedMesh (one draw call)
  * - Hollow triangular wireframes (wireframe: true)
  * - Multicolor density field
- * - Idle rotation on parent group only (no per-particle JS physics loop)
+ * - Idle rotation on parent group only (GPU draws; no per-particle JS physics)
  */
 export default function ParticleSystem({
   shapeA = 'brain',
@@ -46,7 +46,6 @@ export default function ParticleSystem({
     }
   }, []);
 
-  // MUST be declared before any effect that references it
   const dummy = useMemo(() => new THREE.Object3D(), []);
   const colorTmp = useMemo(() => new THREE.Color(), []);
 
@@ -57,7 +56,8 @@ export default function ParticleSystem({
 
     for (let i = 0; i < count; i++) {
       const seed = hash01(i);
-      scales[i] = 0.055 + seed * 0.06;
+      // Visible wire triangles
+      scales[i] = 0.06 + seed * 0.07;
 
       const x = pos[i * 3] || 0;
       const y = pos[i * 3 + 1] || 0;
@@ -69,7 +69,7 @@ export default function ParticleSystem({
       if (!Number.isFinite(band) || band < 0) band = 0;
       const c = PALETTE[band] || PALETTE[0];
 
-      const dim = 0.85 + hash01(i + 91) * 0.2;
+      const dim = 0.9 + hash01(i + 91) * 0.15;
       colors[i * 3] = Math.min(1, c.r * dim);
       colors[i * 3 + 1] = Math.min(1, c.g * dim);
       colors[i * 3 + 2] = Math.min(1, c.b * dim);
@@ -113,12 +113,12 @@ export default function ParticleSystem({
     const { pos, scales, colors } = data;
 
     for (let i = 0; i < count; i++) {
-      const px = pos[i * 3] ?? 0;
-      const py = pos[i * 3 + 1] ?? 0;
-      const pz = pos[i * 3 + 2] ?? 0;
-
-      dummy.position.set(px, py, pz);
-      dummy.scale.setScalar(scales[i] ?? 0.06);
+      dummy.position.set(
+        pos[i * 3] ?? 0,
+        pos[i * 3 + 1] ?? 0,
+        pos[i * 3 + 2] ?? 0
+      );
+      dummy.scale.setScalar(scales[i] ?? 0.07);
       dummy.rotation.set(
         hash01(i + 1) * 0.9,
         hash01(i + 2) * Math.PI * 2,
@@ -142,11 +142,13 @@ export default function ParticleSystem({
     mesh.visible = true;
   }, [count, data, dummy, colorTmp]);
 
+  const colorTmp = useMemo(() => new THREE.Color(), []);
+
   useFrame(({ clock }) => {
     if (reducedMotion || !groupRef.current) return;
     const t = clock.elapsedTime;
-    groupRef.current.rotation.y = t * 0.055;
-    groupRef.current.rotation.x = Math.sin(t * 0.13) * 0.045;
+    groupRef.current.rotation.y = t * 0.05;
+    groupRef.current.rotation.x = Math.sin(t * 0.12) * 0.04;
   });
 
   return (
