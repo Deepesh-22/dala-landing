@@ -5,10 +5,13 @@ import WebGLCanvas from './components/WebGL/WebGLCanvas.jsx';
 import Sections from './components/Sections/Sections.jsx';
 import Loader from './components/UI/Loader.jsx';
 import { useResponsive } from './hooks/useResponsive.js';
+import { useMorphScroll } from './hooks/useMorphScroll.js';
 
 export default function App() {
   const { reducedMotion } = useResponsive();
   const [ready, setReady] = useState(false);
+
+  useMorphScroll({ reducedMotion });
 
   useEffect(() => {
     const t = setTimeout(() => setReady(true), 600);
