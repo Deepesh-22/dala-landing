@@ -1,6 +1,6 @@
 /**
  * Instanced hollow-triangle shaders.
- * Position morph + organic float run on the GPU.
+ * Morph + float + spin all on GPU — no per-particle JS loop.
  */
 
 export const particleVertexShader = /* glsl */ `
@@ -34,18 +34,16 @@ void main() {
   vec3 scatterDir = vec3(aSeed, fract(aSeed * 1.7), fract(aSeed * 2.3)) - 0.5;
   vec3 scatter = scatterDir * mid * 0.35;
 
-  vec3 world = base + drift + scatter;
+  // Spin local triangle in XY
+  float ang = aSeed * 6.2831 + uTime * 0.12;
+  float c = cos(ang);
+  float s = sin(ang);
+  vec2 lp = position.xy * aScale;
+  vec2 rotated = vec2(c * lp.x - s * lp.y, s * lp.x + c * lp.y);
 
-  // Local triangle verts scaled per instance
-  vec3 local = position * aScale;
+  vec3 world = base + drift + scatter + vec3(rotated, position.z * aScale);
 
-  vec4 worldPos = vec4(world + local, 1.0);
-
-  #ifdef USE_INSTANCING
-    worldPos = instanceMatrix * worldPos;
-  #endif
-
-  vec4 mvPos = modelViewMatrix * worldPos;
+  vec4 mvPos = modelViewMatrix * vec4(world, 1.0);
   gl_Position = projectionMatrix * mvPos;
 
   vColor = aColor;
