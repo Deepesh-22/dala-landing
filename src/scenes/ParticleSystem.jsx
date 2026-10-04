@@ -29,7 +29,7 @@ function hash01(i) {
  * - InstancedMesh (one draw call)
  * - Hollow triangular wireframes (wireframe: true)
  * - Multicolor density field
- * - Idle rotation on parent group only (GPU draws; no per-particle JS physics)
+ * - Idle rotation on parent group only
  */
 export default function ParticleSystem({
   shapeA = 'brain',
@@ -56,8 +56,7 @@ export default function ParticleSystem({
 
     for (let i = 0; i < count; i++) {
       const seed = hash01(i);
-      // Visible wire triangles
-      scales[i] = 0.06 + seed * 0.07;
+      scales[i] = 0.07 + seed * 0.08;
 
       const x = pos[i * 3] || 0;
       const y = pos[i * 3 + 1] || 0;
@@ -118,7 +117,7 @@ export default function ParticleSystem({
         pos[i * 3 + 1] ?? 0,
         pos[i * 3 + 2] ?? 0
       );
-      dummy.scale.setScalar(scales[i] ?? 0.07);
+      dummy.scale.setScalar(scales[i] ?? 0.08);
       dummy.rotation.set(
         hash01(i + 1) * 0.9,
         hash01(i + 2) * Math.PI * 2,
@@ -141,8 +140,6 @@ export default function ParticleSystem({
     mesh.frustumCulled = false;
     mesh.visible = true;
   }, [count, data, dummy, colorTmp]);
-
-  const colorTmp = useMemo(() => new THREE.Color(), []);
 
   useFrame(({ clock }) => {
     if (reducedMotion || !groupRef.current) return;
