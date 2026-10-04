@@ -17,7 +17,8 @@ export default function ParticleScene({ reducedMotion = false }) {
 
       <AmbientParticles count={reducedMotion ? 300 : 700} />
 
-      <group position={[0.75, 0.1, 0]} scale={0.6}>
+      {/* Smaller anatomical side-profile brain */}
+      <group position={[0.85, 0.05, 0]} scale={0.5}>
         <ParticleSystem
           shapeA={morph.shapeA}
           shapeB={morph.shapeB}
