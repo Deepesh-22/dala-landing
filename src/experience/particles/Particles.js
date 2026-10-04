@@ -27,9 +27,9 @@ export default class Particles {
     this.shapes = generateAllShapes(this.count);
     this.morph = new MorphSystem({ count: this.count, shapes: this.shapes });
 
-    // Default to scatter for Phase 2 preview (visible cloud of triangles)
-    this.morph.setPair('scatter', 'scatter');
-    this.morph.current.set(this.shapes.scatter);
+    // Phase 3: boot on brain silhouette
+    this.morph.setPair('brain', 'brain');
+    this.morph.current.set(this.shapes.brain);
 
     this._timelineRotY = 0;
     this._timelineRotX = 0;
@@ -40,7 +40,6 @@ export default class Particles {
   }
 
   _createMesh() {
-    // Filled triangle — readable size on black
     const s = 0.017;
     const tri = new THREE.BufferGeometry();
     tri.setAttribute(
