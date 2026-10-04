@@ -1,14 +1,25 @@
 # Build phases
 
-## Phase 1–7 ✅
-Foundation, nav, particles, brain, field, hero, morph
+## Phase 1–9 ✅
+Foundation through lightbulb form + editorial sections
 
-## Phase 8 — Editorial manifesto ✅
-- Full-screen centered poster typography
-- Two statement blocks, max-width ~1200px
-- ScrollTrigger scrub: fade + y on enter/exit
-- Continuous with fixed WebGL morph (no page break feel)
-- No cards / no SaaS containers
+## Phase 10 — Continuous experience ✅
+- Single master timeline (`src/lib/timeline.js`) — configurable keyframes
+- Central `sceneState`:
+  progress, morph, shape, camera, object,
+  particleDensity, particleSize, colorIntensity,
+  rotation, distortion, fieldOpacity
+- One ScrollTrigger updates sceneState; WebGL only reads it
+- Black background + fixed canvas throughout — no hard cuts / cards / white sections
 
-## Next
-Phase 9+: more sections polish / post-processing
+### Timeline (edit in timeline.js)
+| Progress | Beat |
+|----------|------|
+| 0.00–0.15 | Hero brain |
+| 0.15–0.28 | Brain rotation / camera |
+| 0.28–0.40 | Brain dissolves |
+| 0.40–0.52 | Abstract structure |
+| 0.52–0.64 | Manifesto text focus |
+| 0.64–0.78 | Morph toward bulb |
+| 0.78–0.90 | Lightbulb hold |
+| 0.90–1.00 | Structure / CTA |

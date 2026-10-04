@@ -3,9 +3,8 @@ import { useLayoutEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { buildMorphTargets } from './shapes.js';
 import { getParticleBudget } from '../hooks/useResponsive.js';
-import { scrollStore } from '../lib/scrollStore.js';
+import { sceneState } from '../lib/sceneState.js';
 
-/** Balanced palette — region-based, not monochrome gold */
 const C_WHITE = new THREE.Color('#ffffff');
 const C_CREAM = new THREE.Color('#fff6d6');
 const C_YELLOW = new THREE.Color('#f5d76e');
@@ -30,26 +29,20 @@ function smoothstep(e0, e1, x) {
   return t * t * (3 - 2 * t);
 }
 
-/** Pick color from spatial region of the brain */
 function colorForBrainPoint(x, y, z, seed) {
   const lateral = Math.abs(x);
-  const frontal = z; // +z front
+  const frontal = z;
   const elev = y;
 
-  // Core / inner — white + soft yellow
   if (lateral < 0.35 && Math.abs(elev) < 0.35 && frontal > -0.2) {
     return seed > 0.55 ? C_WHITE : seed > 0.25 ? C_CREAM : C_YELLOW;
   }
-
-  // Frontal lobe — yellow / gold dominant
   if (frontal > 0.25) {
     if (seed > 0.7) return C_WHITE;
     if (seed > 0.35) return C_YELLOW;
     if (seed > 0.15) return C_GOLD;
     return C_LILAC;
   }
-
-  // Lateral outer — purple / indigo / blue
   if (lateral > 0.45) {
     if (seed > 0.75) return C_CYAN;
     if (seed > 0.5) return C_INDIGO;
@@ -57,23 +50,17 @@ function colorForBrainPoint(x, y, z, seed) {
     if (seed > 0.12) return C_VIOLET;
     return C_BLUE;
   }
-
-  // Superior / top — mix yellow + lilac
   if (elev > 0.3) {
     if (seed > 0.6) return C_YELLOW;
     if (seed > 0.3) return C_LILAC;
     return C_VIOLET;
   }
-
-  // Lower / stem area — cooler + accents
   if (elev < -0.25) {
     if (seed > 0.85) return C_MAGENTA;
     if (seed > 0.6) return C_TEAL;
     if (seed > 0.35) return C_BLUE;
     return C_PURPLE;
   }
-
-  // Mid default — balanced mix
   if (seed > 0.82) return C_GREEN;
   if (seed > 0.68) return C_MAGENTA;
   if (seed > 0.5) return C_CYAN;
@@ -83,6 +70,9 @@ function colorForBrainPoint(x, y, z, seed) {
   return C_INDIGO;
 }
 
+/**
+ * Particle system — driven only by sceneState from the master timeline.
+ */
 export default function ParticleSystem({ reducedMotion = false }) {
   const meshRef = useRef(null);
   const groupRef = useRef(null);
@@ -116,14 +106,12 @@ export default function ParticleSystem({ reducedMotion = false }) {
       const bx = brain[i * 3] || 0;
       const by = brain[i * 3 + 1] || 0;
       const bz = brain[i * 3 + 2] || 0;
-
       const bc = colorForBrainPoint(bx, by, bz, seed);
       const dim = 0.72 + hash01(i + 91) * 0.32;
       brainColors[i * 3] = Math.min(1, bc.r * dim);
       brainColors[i * 3 + 1] = Math.min(1, bc.g * dim);
       brainColors[i * 3 + 2] = Math.min(1, bc.b * dim);
 
-      // Later morphs lean cooler / more varied
       const morphPalette = [
         C_WHITE,
         C_LILAC,
@@ -138,7 +126,8 @@ export default function ParticleSystem({ reducedMotion = false }) {
         C_YELLOW,
         C_GOLD,
       ];
-      const mc = morphPalette[Math.floor(seed * morphPalette.length) % morphPalette.length];
+      const mc =
+        morphPalette[Math.floor(seed * morphPalette.length) % morphPalette.length];
       const md = 0.68 + hash01(i + 17) * 0.35;
       morphColors[i * 3] = Math.min(1, mc.r * md);
       morphColors[i * 3 + 1] = Math.min(1, mc.g * md);
@@ -190,7 +179,6 @@ export default function ParticleSystem({ reducedMotion = false }) {
       );
       dummy.updateMatrix();
       mesh.setMatrixAt(i, dummy.matrix);
-
       colorTmp.setRGB(
         brainColors[i * 3],
         brainColors[i * 3 + 1],
@@ -210,7 +198,8 @@ export default function ParticleSystem({ reducedMotion = false }) {
     if (!mesh) return;
 
     const t = clock.elapsedTime;
-    const morph = reducedMotion ? 0 : scrollStore.morph;
+    const s = sceneState;
+    const morph = reducedMotion ? 0 : s.morph;
     const morphDelta = Math.abs(morph - lastMorph.current);
     const isMorphing = morphDelta > 0.00015;
     lastMorph.current = morph;
@@ -218,7 +207,7 @@ export default function ParticleSystem({ reducedMotion = false }) {
     frameSkip.current += 1;
     if (!isMorphing && !reducedMotion && frameSkip.current % 2 === 0) {
       if (groupRef.current) {
-        groupRef.current.rotation.y = t * 0.035 + morph * 0.3;
+        groupRef.current.rotation.y = t * s.rotation;
         groupRef.current.rotation.x = Math.sin(t * 0.1) * 0.03;
         groupRef.current.scale.setScalar(1 + Math.sin(t * 0.45) * 0.012);
       }
@@ -235,10 +224,13 @@ export default function ParticleSystem({ reducedMotion = false }) {
     const posB = targets[i1];
 
     const mid = 1 - Math.abs(localT - 0.5) * 2;
-    const scatter = mid * mid * (0.14 + localT * 0.18);
+    // Distortion from master state + mid-transition peak
+    const scatter =
+      Math.max(s.distortion * 0.2, mid * mid * (0.12 + localT * 0.16));
 
-    // Stay on brain palette early; blend toward morph palette later
     const coolBlend = smoothstep(0.4, 2.2, morph);
+    const sizeMul = s.particleSize;
+    const colorI = s.colorIntensity;
 
     for (let i = 0; i < count; i++) {
       const seed = seeds[i];
@@ -277,7 +269,7 @@ export default function ParticleSystem({ reducedMotion = false }) {
       }
 
       dummy.position.set(x, y, z);
-      dummy.scale.setScalar(scales[i] * (1 + mid * 0.12 * seed));
+      dummy.scale.setScalar(scales[i] * sizeMul * (1 + mid * 0.12 * seed));
       dummy.rotation.set(
         t * (0.12 + seed * 0.25) * (0.25 + mid * 1.2) + seed * 3,
         t * (0.08 + seed * 0.18) * (0.25 + mid * 1.1) + seed * 5,
@@ -287,11 +279,14 @@ export default function ParticleSystem({ reducedMotion = false }) {
       mesh.setMatrixAt(i, dummy.matrix);
 
       colorTmp.setRGB(
-        brainColors[i * 3] * (1 - coolBlend) + morphColors[i * 3] * coolBlend,
-        brainColors[i * 3 + 1] * (1 - coolBlend) +
-          morphColors[i * 3 + 1] * coolBlend,
-        brainColors[i * 3 + 2] * (1 - coolBlend) +
-          morphColors[i * 3 + 2] * coolBlend
+        (brainColors[i * 3] * (1 - coolBlend) + morphColors[i * 3] * coolBlend) *
+          colorI,
+        (brainColors[i * 3 + 1] * (1 - coolBlend) +
+          morphColors[i * 3 + 1] * coolBlend) *
+          colorI,
+        (brainColors[i * 3 + 2] * (1 - coolBlend) +
+          morphColors[i * 3 + 2] * coolBlend) *
+          colorI
       );
       mesh.setColorAt(i, colorTmp);
     }
@@ -300,9 +295,9 @@ export default function ParticleSystem({ reducedMotion = false }) {
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
 
     if (groupRef.current && !reducedMotion) {
-      groupRef.current.rotation.y = t * 0.035 + morph * 0.3;
+      groupRef.current.rotation.y = t * s.rotation + morph * 0.15;
       groupRef.current.rotation.x =
-        Math.sin(t * 0.1) * 0.03 + morph * 0.035;
+        Math.sin(t * 0.1) * 0.03 + morph * 0.03;
       const breath = 1 + Math.sin(t * 0.45) * 0.012 + mid * 0.05;
       groupRef.current.scale.setScalar(breath);
     }
