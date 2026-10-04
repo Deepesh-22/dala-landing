@@ -1,17 +1,15 @@
 import { useThree } from '@react-three/fiber';
 import { useEffect } from 'react';
 
-/**
- * Elevated front-oblique — both hemispheres + longitudinal fissure readable.
- */
 export default function CameraController() {
   const { camera } = useThree();
 
   useEffect(() => {
-    // Slightly above and in front so frontal poles + fissure are clear
-    camera.position.set(0.15, 0.55, 2.9);
-    camera.lookAt(0, 0.05, 0.05);
-    camera.fov = 34;
+    camera.position.set(0, 0.3, 3.2);
+    camera.lookAt(0.3, 0.05, 0);
+    camera.fov = 40;
+    camera.near = 0.1;
+    camera.far = 100;
     camera.updateProjectionMatrix();
   }, [camera]);
 
