@@ -1,21 +1,15 @@
 # Dala Landing
 
-Exact Dala-style particle morph landing page.
+Experimental creative WebGL site — black canvas, editorial type, scroll-driven particles.
 
-## Features
+## Phase 1 — Foundation
 
-- **Pure black background** (`#000`)
-- **Filled triangular particles** (not boxes/points)
-- **8-color Dala palette**: yellow, light purple, purple, teal, green, white, coral, blue
-- **Morph sequence** (scroll-driven):
-  1. Brain (hero)
-  2. Scatter (manifesto)
-  3. Lightbulb (insight)
-  4. Globe with continents (scale)
-  5. Abstract organic ribbon (flow / CTA)
-- **Ambient floating layer** — sparse triangles always in the background
-- **Spring + noise morph physics** with settle phases
-- **Lenis smooth scroll** + GSAP ScrollTrigger
+- Full-screen black (`#000`)
+- Fixed WebGL canvas (R3F)
+- Scrollable HTML above canvas
+- Lenis smooth scroll
+- DPR cap, reduced-motion, responsive hooks
+- **No particle artwork yet**
 
 ## Run
 
@@ -24,15 +18,11 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:5173 and scroll.
+http://localhost:5173
 
 ## Stack
 
 - React 18 + Vite
-- Three.js (InstancedMesh triangles)
-- GSAP + ScrollTrigger
-- Lenis
-
-## Reference
-
-Visual target: [dala.craftedbygc.com](https://dala.craftedbygc.com)
+- Three.js + @react-three/fiber + @react-three/drei
+- GSAP + Lenis
+- lucide-react (icons when needed)
