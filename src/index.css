@@ -14,6 +14,15 @@ html {
   background: var(--bg);
 }
 
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+
 body {
   background: var(--bg);
   color: var(--text);
@@ -27,7 +36,6 @@ body {
   background: #000;
 }
 
-/* Phase 1: full-screen black canvas */
 .dala-canvas {
   position: fixed;
   inset: 0;
@@ -44,46 +52,68 @@ body {
   background: transparent;
 }
 
-/* Phase 6: editorial sections */
 .dala-section {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  padding: 10vh 6vw;
-  max-width: 640px;
+  padding: 12vh 8vw;
+  max-width: 560px;
 }
 
-.dala-section .label {
-  font-size: 0.7rem;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.38);
-  margin-bottom: 1.1rem;
+.dala-section--right {
+  margin-left: auto;
+  text-align: left;
+  max-width: 520px;
+  padding-right: 8vw;
 }
 
-.dala-section h1 {
-  font-size: clamp(2.4rem, 5.5vw, 4.2rem);
-  font-weight: 600;
-  line-height: 1.12;
-  letter-spacing: -0.03em;
-  margin-bottom: 1.35rem;
-}
-
-.dala-section p {
-  font-size: clamp(1.05rem, 1.7vw, 1.3rem);
-  line-height: 1.7;
-  color: var(--muted);
-  max-width: 34em;
-}
-
-#hero {
+.dala-section--center {
+  margin-left: auto;
+  margin-right: auto;
+  text-align: center;
+  align-items: center;
   max-width: 520px;
 }
 
+.dala-section .label {
+  font-size: 0.68rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.36);
+  margin-bottom: 1.25rem;
+}
+
+.dala-section h1 {
+  font-size: clamp(2.5rem, 6vw, 4.6rem);
+  font-weight: 600;
+  line-height: 1.08;
+  letter-spacing: -0.035em;
+  margin-bottom: 1.4rem;
+}
+
+.dala-section p {
+  font-size: clamp(1.05rem, 1.8vw, 1.28rem);
+  line-height: 1.75;
+  color: var(--muted);
+  max-width: 32em;
+}
+
+.scroll-hint {
+  margin-top: 2.5rem !important;
+  font-size: 0.75rem !important;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.32) !important;
+}
+
+#hero {
+  max-width: 540px;
+}
+
 .cta-btn {
-  margin-top: 2.25rem;
-  padding: 0.95rem 1.9rem;
+  margin-top: 2.4rem;
+  padding: 1rem 2.1rem;
   background: #fff;
   color: #000;
   border: none;
@@ -100,10 +130,10 @@ body {
 }
 
 .dala-footer {
-  padding: 5rem 6vw 7rem;
-  font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.3);
-  letter-spacing: 0.04em;
+  padding: 4rem 8vw 6rem;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.28);
+  letter-spacing: 0.06em;
 }
 
 .dala-loader {
@@ -131,8 +161,14 @@ body {
 }
 
 @media (max-width: 768px) {
-  .dala-section {
-    padding: 12vh 5vw;
+  .dala-section,
+  .dala-section--right,
+  .dala-section--center {
+    padding: 14vh 6vw;
     max-width: 100%;
+    margin-left: 0;
+    margin-right: 0;
+    text-align: left;
+    align-items: flex-start;
   }
 }
