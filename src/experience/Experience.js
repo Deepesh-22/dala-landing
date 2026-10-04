@@ -55,27 +55,26 @@ export default class Experience {
     this.timeline = null;
     this.smoothScroll = null;
 
-    // ── Phase 2+: triangle particles ──────────────────────────
     if (BUILD_PHASE >= 2) {
       this.particles = new Particles({ scene: this.scene });
       if (this.particles.mesh) {
-        // Center brain for clear hero silhouette
-        this.particles.mesh.position.set(0.15, 0.05, 0);
-        this.particles.mesh.scale.setScalar(BUILD_PHASE >= 3 ? 1.15 : 1);
+        // Centered, slightly larger so lobe / fissure detail reads
+        this.particles.mesh.position.set(0, 0.06, 0);
+        this.particles.mesh.scale.setScalar(BUILD_PHASE >= 3 ? 1.28 : 1);
       }
 
       if (this.particles.morph) {
         if (BUILD_PHASE >= 3) {
-          // Phase 3: hold solid brain silhouette
           this.particles.morph.setPair('brain', 'brain');
           this.particles.morph.setProgress(0);
           this.particles.morph.current.set(this.particles.shapes.brain);
-          this.particles.morph.params.springStrength = 6.0;
-          this.particles.morph.params.noiseStrength = 0.025;
+          // Strong spring + very low noise = sharp anatomical settle
+          this.particles.morph.params.springStrength = 7.2;
+          this.particles.morph.params.noiseStrength = 0.012;
           this.particles.morph.params.scatter = 0;
-          this.particles.morph.params.turbulence = 0.04;
+          this.particles.morph.params.turbulence = 0.025;
+          this.particles.morph.params.damping = 0.88;
         } else {
-          // Phase 2: scatter cloud
           this.particles.morph.setPair('scatter', 'scatter');
           this.particles.morph.setProgress(0);
           this.particles.morph.params.springStrength = 5.5;
@@ -133,9 +132,12 @@ export default class Experience {
     const delta = Math.min(elapsed - this._prevTime, 0.05);
     this._prevTime = elapsed;
 
-    // Slow continuous Y rotation for hero preview
+    // Slow spin so all sides of the brain reveal
     if (BUILD_PHASE >= 2 && BUILD_PHASE <= 3 && this.particles) {
-      this.particles._timelineRotY = elapsed * (BUILD_PHASE === 3 ? 0.08 : 0.12);
+      this.particles._timelineRotY = elapsed * (BUILD_PHASE === 3 ? 0.06 : 0.12);
+      if (BUILD_PHASE === 3) {
+        this.particles._timelineRotX = Math.sin(elapsed * 0.15) * 0.04;
+      }
     }
 
     this.timeline?.update?.();
