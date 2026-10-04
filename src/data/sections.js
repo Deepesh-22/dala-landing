@@ -1,6 +1,5 @@
 /**
- * Editorial sections — Phase 1 placeholders only.
- * Shape keys reserved for later WebGL morph wiring.
+ * Editorial sections — placeholders for scroll / morph wiring.
  */
 export const SECTIONS = [
   {
@@ -26,29 +25,23 @@ export const SECTIONS = [
   },
   {
     id: 'feature-02',
-    label: 'Scale',
+    label: 'Team',
     title: 'Think in worlds',
     body: 'Each section maps to a future 3D state.',
     shape: 'globe',
   },
   {
     id: 'feature-03',
-    label: 'Flow',
+    label: 'Blog',
     title: 'Organic motion',
     body: 'One experience, not separate pages.',
     shape: 'abstract',
   },
   {
     id: 'cta',
-    label: 'Begin',
-    title: 'Ready when you are',
+    label: 'Access',
+    title: 'Request access',
     body: 'Architecture is in place. Visual systems follow in later phases.',
     shape: 'abstract',
   },
-];
-
-export const NAV_LINKS = [
-  { href: '#hero', label: 'Home' },
-  { href: '#manifesto', label: 'Manifesto' },
-  { href: '#cta', label: 'Contact' },
 ];
