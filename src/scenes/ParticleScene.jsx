@@ -15,9 +15,9 @@ export default function ParticleScene({ reducedMotion = false }) {
       <color attach="background" args={['#000000']} />
       <CameraController />
 
-      <AmbientParticles count={reducedMotion ? 300 : 700} />
+      <AmbientParticles count={reducedMotion ? 200 : 400} />
 
-      <group position={[0.7, 0.0, 0]} scale={0.55} rotation={[0.15, 0.25, 0]}>
+      <group position={[0.55, 0.05, 0]} scale={0.7} rotation={[0.12, 0.2, 0]}>
         <ParticleSystem
           shapeA={morph.shapeA}
           shapeB={morph.shapeB}
