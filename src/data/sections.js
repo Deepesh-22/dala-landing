@@ -1,9 +1,6 @@
 export const SECTIONS = [
   {
     id: 'hero',
-    label: 'Intro',
-    title: 'A continuous visual field',
-    body: 'Thousands of triangular fragments form a living structure. Scroll will later reshape the field.',
     shape: 'brain',
   },
   {

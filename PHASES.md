@@ -1,27 +1,20 @@
 # Build phases
 
 ## Phase 1 — Foundation ✅
-- Vite + React + Three + R3F + GSAP + Lenis
-- Full-viewport black site, fixed WebGL canvas
-
 ## Phase 2 — Navigation ✅
-- Fixed minimal nav, logo + purple CTA
-
 ## Phase 3 — Particle engine ✅
-- InstancedMesh wireframe triangles
-
 ## Phase 4 — Brain form ✅
-- Dual hemispheres, fissure, cerebellum, stem
-- Right-half composition, fine triangles
+## Phase 5 — Floating field ✅
 
-## Phase 5 — Floating triangle field ✅
-- Separate layer from brain
-- ~400–900 particles (device-based)
-- Depth-based size/brightness
-- Slow float, rotate, parallax
-- Biased away from left typography zone
-- Low opacity — never overpowers type
+## Phase 6 — Hero composition ✅
+- LEFT: large editorial heading "Unlock / Collective / Wisdom."
+- Yellow uppercase eyebrow
+- Narrow body paragraph
+- Purple pill CTA (hover scale + brightness)
+- RIGHT: particle brain (WebGL)
+- ~45% / 55% split, left-aligned, no cards, no max-width SaaS box
+- Text crisp above moving particles
 
 ## Next
-- Phase 6: shape morph
-- Phase 7+: scroll choreography
+- Phase 7: scroll sections / morph
+- Phase 8+: camera + post-processing

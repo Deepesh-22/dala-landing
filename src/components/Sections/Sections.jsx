@@ -5,13 +5,16 @@ import Section from './Section.jsx';
 export default function Sections() {
   return (
     <>
-      {SECTIONS.map((s) =>
-        s.id === 'hero' ? (
-          <Hero key={s.id} label={s.label} title={s.title} body={s.body} />
-        ) : (
-          <Section key={s.id} id={s.id} label={s.label} title={s.title} body={s.body} />
-        )
-      )}
+      <Hero />
+      {SECTIONS.filter((s) => s.id !== 'hero').map((s) => (
+        <Section
+          key={s.id}
+          id={s.id}
+          label={s.label}
+          title={s.title}
+          body={s.body}
+        />
+      ))}
     </>
   );
 }
