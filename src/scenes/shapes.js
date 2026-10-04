@@ -1,6 +1,6 @@
 /**
  * Procedural particle positions.
- * Brain = dual cerebral hemispheres + longitudinal fissure + gyri/sulci + cerebellum + stem.
+ * Brain = dual cerebral hemispheres + longitudinal fissure + gyri/sulci.
  */
 
 function hash(n) {
@@ -14,8 +14,7 @@ function noise3(x, y, z) {
     Math.sin(x * 3.1 - y * 1.9 + z * 2.7) * 0.25 +
     Math.sin(x * 5.3 + y * 4.1 - z * 3.2) * 0.125 +
     Math.sin(x * 9.1 + y * 7.3 + z * 6.2) * 0.06 +
-    Math.sin(x * 17.0 + y * 13.0 + z * 11.0) * 0.03 +
-    Math.sin(x * 31.0 - y * 23.0 + z * 19.0) * 0.015
+    Math.sin(x * 17.0 + y * 13.0 + z * 11.0) * 0.03
   );
 }
 
@@ -30,13 +29,13 @@ function fibDir(i, count) {
   };
 }
 
+/** Keep counts modest — high counts freeze the main thread */
 export function getParticleCount() {
-  if (typeof window === 'undefined') return 50000;
+  if (typeof window === 'undefined') return 10000;
   const w = window.innerWidth;
-  const cores = navigator.hardwareConcurrency || 4;
-  if (w < 640 || cores <= 2) return 28000;
-  if (w < 1024 || cores <= 4) return 55000;
-  return 85000;
+  if (w < 640) return 6000;
+  if (w < 1024) return 9000;
+  return 12000;
 }
 
 export function createSphere(count) {
@@ -67,13 +66,8 @@ export function createScatter(count) {
   return pos;
 }
 
-/**
- * Dual-hemisphere human brain silhouette.
- * X = left/right, Y = up/down, Z = front(+)/back(−)
- */
 export function createBrain(count) {
   const pos = new Float32Array(count * 3);
-
   const nCortex = Math.floor(count * 0.74);
   const nMedial = Math.floor(count * 0.05);
   const nCere = Math.floor(count * 0.12);
@@ -81,7 +75,6 @@ export function createBrain(count) {
   const nFill = count - nCortex - nMedial - nCere - nStem;
   let idx = 0;
 
-  // Wider gap so fissure reads at a glance
   const HEMI_X = 0.48;
   const RX = 0.68;
   const RY = 0.66;
@@ -91,10 +84,8 @@ export function createBrain(count) {
     const side = i % 2 === 0 ? -1 : 1;
     const hemiIndex = Math.floor(i / 2);
     const hemiCount = Math.ceil(nCortex / 2);
+    const d = fibDir(hemiIndex, hemiCount);
 
-    let d = fibDir(hemiIndex, hemiCount);
-
-    // Keep samples on outer lateral surface — never fill midline
     let lx = Math.abs(d.x) * 0.5 + 0.5;
     let ly = d.y;
     let lz = d.z;
@@ -111,59 +102,41 @@ export function createBrain(count) {
     let ry = RY * asymY;
     let rz = RZ;
 
-    // Frontal poles — rounded
     if (lz > 0.25) {
       rz *= 1.08;
       ry *= 0.95;
       ly -= 0.05 * lz;
     }
-
-    // Occipital — narrower
     if (lz < -0.2) {
       rx *= 0.86;
       rz *= 0.9;
     }
-
-    // Wider crown
     if (ly > 0.2) {
       rx *= 1.1;
       ry *= 1.06;
     }
-
-    // Flatten underside
     if (ly < -0.15) {
       ry *= 0.7;
       if (lz < 0) ly *= 0.82;
     }
 
-    // Dense gyri / sulci
     const g1 = noise3(lx * 6 + side, ly * 6, lz * 6);
     const g2 = noise3(lx * 14, ly * 14 + side * 2, lz * 14);
     const g3 = noise3(lx * 28, ly * 28, lz * 28 + side);
-    const g4 = noise3(lx * 48, ly * 48, lz * 48);
     const sulcus1 = Math.sin(lz * 9.0 + ly * 5.0) * 0.024;
     const sulcus2 = Math.sin(ly * 18.0 - lz * 7.0 + lx * 3.0) * 0.02;
-    const sulcus3 = Math.sin(lz * 22.0 + ly * 14.0 + lx * 8.0) * 0.012;
-
-    const fold =
-      g1 * 0.052 + g2 * 0.034 + g3 * 0.02 + g4 * 0.012 + sulcus1 + sulcus2 + sulcus3;
+    const fold = g1 * 0.052 + g2 * 0.034 + g3 * 0.02 + sulcus1 + sulcus2;
 
     const shell = 0.9 + hash(i * 1.3) * 0.1;
     const r = (1.0 + fold) * shell;
-
     const fissureGap = 0.1;
-    const worldX =
-      side * (HEMI_X + fissureGap * (1.15 - lx)) + side * lx * r * rx;
-    const worldY = ly * r * ry + 0.15;
-    const worldZ = lz * r * rz;
 
-    pos[idx * 3] = worldX;
-    pos[idx * 3 + 1] = worldY;
-    pos[idx * 3 + 2] = worldZ;
+    pos[idx * 3] = side * (HEMI_X + fissureGap * (1.15 - lx)) + side * lx * r * rx;
+    pos[idx * 3 + 1] = ly * r * ry + 0.15;
+    pos[idx * 3 + 2] = lz * r * rz;
     idx++;
   }
 
-  // Medial walls (fissure lining)
   for (let j = 0; j < nMedial; j++) {
     const side = j % 2 === 0 ? -1 : 1;
     const elev = (hash(j * 1.9) - 0.45) * 1.15;
@@ -174,33 +147,26 @@ export function createBrain(count) {
     idx++;
   }
 
-  // Cerebellum
   for (let j = 0; j < nCere; j++) {
     const side = hash(j * 0.61) > 0.5 ? 1 : -1;
     const d = fibDir(j, nCere);
     const folio = Math.sin(d.y * 26 + d.z * 8) * 0.03;
-    const rx = 0.3 + folio;
-    const ry = 0.24;
-    const rz = 0.34;
-    pos[idx * 3] = side * (0.3 + Math.abs(d.x) * rx);
-    pos[idx * 3 + 1] = -0.52 + d.y * ry;
-    pos[idx * 3 + 2] = -0.58 + d.z * rz;
+    pos[idx * 3] = side * (0.3 + Math.abs(d.x) * (0.3 + folio));
+    pos[idx * 3 + 1] = -0.52 + d.y * 0.24;
+    pos[idx * 3 + 2] = -0.58 + d.z * 0.34;
     idx++;
   }
 
-  // Brainstem
   for (let j = 0; j < nStem; j++) {
     const t = j / Math.max(nStem - 1, 1);
     const a = hash(j * 4.1) * Math.PI * 2;
     const r = 0.1 * (1 - t * 0.4);
-    const wobble = (hash(j * 1.5) - 0.5) * 0.035;
-    pos[idx * 3] = Math.cos(a) * r + wobble;
+    pos[idx * 3] = Math.cos(a) * r + (hash(j * 1.5) - 0.5) * 0.035;
     pos[idx * 3 + 1] = -0.28 - t * 0.65;
     pos[idx * 3 + 2] = -0.15 + Math.sin(a) * r * 0.5;
     idx++;
   }
 
-  // Sparse fill
   for (let j = 0; j < nFill && idx < count; j++) {
     const side = j % 2 === 0 ? -1 : 1;
     const d = fibDir(j + 31, nFill);
@@ -227,7 +193,6 @@ export function createBulb(count) {
   const nNeck = Math.floor(count * 0.25);
   const nBase = count - nGlobe - nNeck;
   let idx = 0;
-
   for (let i = 0; i < nGlobe; i++) {
     const d = fibDir(i, nGlobe);
     const r = 0.88 + noise3(d.x * 3, d.y * 3, d.z * 3) * 0.05;
