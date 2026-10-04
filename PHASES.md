@@ -1,6 +1,6 @@
 # Dala Landing — Phases
 
-## Phase 2 ← current — Navigation
+## Phase 3 ← current — Particle engine
 
 ```bash
 git pull
@@ -12,19 +12,25 @@ Open http://localhost:5173
 
 ### Checklist
 
-- [ ] Fixed top, transparent (no bar / shadow / glass)
-- [ ] Logo left (dot + “Dala”)
-- [ ] Right links: MANIFESTO · TEAM · BLOG
-- [ ] Purple pill **REQUEST ACCESS** CTA
-- [ ] Hover: link opacity / CTA scale
-- [ ] Nav above WebGL (`z-index: 30`)
-- [ ] Mobile ≤900px: desktop links hidden, minimal 2-line menu button (no drawer)
+- [ ] Thousands of **tiny hollow triangles** (wireframe), not circles
+- [ ] Multicolor palette: white / yellow / purple / blue / cyan / green / magenta
+- [ ] Uneven brightness (density field)
+- [ ] Default form: **brain-like** silhouette
+- [ ] Alive float (subtle motion when idle)
+- [ ] Black background, fixed canvas
+- [ ] Nav still works above WebGL
+- [ ] ~20k–70k particles by device, smooth FPS
 - [ ] No console errors
 
-**When all pass → reply: `Phase 2 pass`**
+**When all pass → reply: `Phase 3 pass`**
 
 ---
 
+## Phase 2 — Navigation ✅
 ## Phase 1 — Foundation ✅
 
-Black canvas, fixed R3F layer, sections, Lenis, DPR cap.
+### Engine files
+
+- `src/scenes/ParticleSystem.jsx` — InstancedMesh + GPU shaders
+- `src/scenes/shapes.js` — sphere / brain / bulb / scatter / abstract
+- `src/scenes/particleShaders.js` — morph + float on GPU
