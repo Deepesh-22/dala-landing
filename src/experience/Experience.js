@@ -4,8 +4,8 @@
  * 2 = + triangle particles + colors
  * 3 = + brain shape
  * 4 = + morph physics
- * 5 = + ambient + all shapes  ← current
- * 6 = + full scroll page
+ * 5 = + ambient + all shapes
+ * 6 = + full scroll page  ← current
  */
 import * as THREE from 'three';
 import Scene from './Scene.js';
@@ -13,11 +13,13 @@ import Camera from './Camera.js';
 import Renderer from './Renderer.js';
 import Particles from './particles/Particles.js';
 import AmbientLayer from './particles/AmbientLayer.js';
+import TimelineController from './animation/Timeline.js';
+import SmoothScroll from './utils/SmoothScroll.js';
 import { isWebGLAvailable } from './utils/device.js';
 
-export const BUILD_PHASE = 5;
+export const BUILD_PHASE = 6;
 
-/** Full shape morph sequence (Phase 4/5 demo, no scroll yet) */
+/** Auto morph sequence (Phase 4–5 only; disabled when scroll timeline is on) */
 const MORPH_SEQUENCE = [
   { from: 'brain', to: 'scatter', hold: 2.2, morph: 2.4 },
   { from: 'scatter', to: 'bulb', hold: 1.8, morph: 2.2 },
@@ -62,7 +64,7 @@ export default class Experience {
     this.scene = new Scene();
     this.camera = new Camera({ sizes: this.sizes });
     this.renderer = new Renderer({ canvas: this.canvas, sizes: this.sizes });
-    this.onProgress(0.4);
+    this.onProgress(0.35);
 
     this.particles = null;
     this.ambient = null;
@@ -73,11 +75,21 @@ export default class Experience {
       this.particles = new Particles({ scene: this.scene });
       if (this.particles.mesh) {
         this.particles.mesh.position.set(0, 0.06, 0);
-        this.particles.mesh.scale.setScalar(BUILD_PHASE >= 3 ? 1.22 : 1);
+        this.particles.mesh.scale.setScalar(BUILD_PHASE >= 3 ? 1.15 : 1);
       }
 
       if (this.particles.morph) {
-        if (BUILD_PHASE >= 4) {
+        if (BUILD_PHASE >= 6) {
+          // Scroll drives morph — start on brain
+          this.particles.morph.setPair('brain', 'brain');
+          this.particles.morph.setProgress(0);
+          this.particles.morph.current.set(this.particles.shapes.brain);
+          this.particles.morph.params.springStrength = 5.2;
+          this.particles.morph.params.noiseStrength = 0.04;
+          this.particles.morph.params.scatter = 0;
+          this.particles.morph.params.turbulence = 0.06;
+          this.particles.morph.params.damping = 0.87;
+        } else if (BUILD_PHASE >= 4) {
           const first = MORPH_SEQUENCE[0];
           this.particles.morph.setPair(first.from, first.to);
           this.particles.morph.setProgress(0);
@@ -101,16 +113,25 @@ export default class Experience {
         }
       }
       this.particles._timelineRotY = 0;
-      this.onProgress(0.65);
+      this.onProgress(0.55);
     }
 
-    // Phase 5: ambient field — never morphs, always drifts in the void
     if (BUILD_PHASE >= 5) {
       this.ambient = new AmbientLayer({ scene: this.scene });
-      this.onProgress(0.85);
+      this.onProgress(0.7);
     }
 
-    this.onProgress(0.95);
+    // Phase 6: Lenis smooth scroll + GSAP ScrollTrigger story
+    if (BUILD_PHASE >= 6) {
+      this.smoothScroll = new SmoothScroll();
+      // Delay timeline one frame so section DOM is painted
+      requestAnimationFrame(() => {
+        this.timeline = new TimelineController({ experience: this });
+        this.onProgress(0.95);
+      });
+    }
+
+    this.onProgress(0.9);
 
     this.onResize = this.onResize.bind(this);
     this.onVisibility = this.onVisibility.bind(this);
@@ -136,7 +157,8 @@ export default class Experience {
   }
 
   _updateMorphSequence(delta) {
-    if (!this.particles?.morph || BUILD_PHASE < 4) return;
+    // Auto-cycle only when scroll timeline is not active
+    if (!this.particles?.morph || BUILD_PHASE < 4 || BUILD_PHASE >= 6) return;
 
     const step = MORPH_SEQUENCE[this._morphStep];
     this._morphStepTime += delta;
@@ -181,6 +203,7 @@ export default class Experience {
       this.sizes.height = window.innerHeight;
       this.camera.resize();
       this.renderer.resize();
+      this.smoothScroll?.resize?.();
     }, 100);
   }
 
@@ -213,7 +236,8 @@ export default class Experience {
       this.particles._timelineRotY = elapsed * 0.06;
       this.particles._timelineRotX = Math.sin(elapsed * 0.15) * 0.04;
     }
-    if (BUILD_PHASE >= 4) {
+    // Auto morph only phases 4–5
+    if (BUILD_PHASE >= 4 && BUILD_PHASE < 6) {
       this._updateMorphSequence(delta);
     }
 
@@ -225,7 +249,7 @@ export default class Experience {
     this.renderer.update(this.scene.instance, this.camera.instance);
 
     this._frames += 1;
-    if (this._frames === 6) {
+    if (this._frames === 8) {
       this.onProgress(1);
       this._readyResolve?.();
     }
