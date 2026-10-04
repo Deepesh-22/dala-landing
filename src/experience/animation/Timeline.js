@@ -5,7 +5,7 @@ gsap.registerPlugin(ScrollTrigger);
 
 /**
  * Scroll-driven morph story:
- * Hero brain → Manifesto scatter → Bulb → Globe → Abstract
+ * Hero brain → Manifesto scatter → Bulb → Globe → Abstract → CTA gather
  */
 export default class TimelineController {
   constructor({ experience }) {
@@ -61,7 +61,7 @@ export default class TimelineController {
 
   _setup() {
     const s = this.state;
-    const scrub = 1.6;
+    const scrub = 1.5;
 
     this._setPair('brain', 'brain');
     this.morph?.setProgress(0);
@@ -80,15 +80,23 @@ export default class TimelineController {
           this.morph?.setProgress(0);
         },
         onUpdate: (self) => {
-          this._cam('HERO', 'MANIFESTO', self.progress * 0.5);
+          this._cam('HERO', 'MANIFESTO', self.progress * 0.55);
           this._sync();
         },
       },
     });
     heroTl.fromTo(
       s,
-      { rotY: 0, noiseStrength: 0.05, springStrength: 4.6, scatter: 0, scale: 1 },
-      { rotY: 0.12, noiseStrength: 0.07, springStrength: 4.8, scatter: 0.006, scale: 1.02, ease: 'none', duration: 1 },
+      { rotY: 0, noiseStrength: 0.04, springStrength: 5.5, scatter: 0, scale: 1 },
+      {
+        rotY: 0.15,
+        noiseStrength: 0.06,
+        springStrength: 5.0,
+        scatter: 0.01,
+        scale: 1.02,
+        ease: 'none',
+        duration: 1,
+      },
       0
     );
     this.triggers.push(heroTl.scrollTrigger);
@@ -97,8 +105,8 @@ export default class TimelineController {
     const manTl = gsap.timeline({
       scrollTrigger: {
         trigger: '#manifesto',
-        start: 'top 75%',
-        end: 'bottom 25%',
+        start: 'top 80%',
+        end: 'bottom 20%',
         scrub,
         onEnter: () => {
           this._setPair('brain', 'scatter');
@@ -112,7 +120,7 @@ export default class TimelineController {
           this.morph?.setProgress(0);
         },
         onUpdate: (self) => {
-          this._cam('MANIFESTO', 'FEATURE_01', self.progress * 0.4);
+          this._cam('MANIFESTO', 'FEATURE_01', self.progress * 0.45);
           this._sync();
         },
       },
@@ -120,14 +128,28 @@ export default class TimelineController {
     manTl
       .fromTo(
         s,
-        { morphProgress: 0, scatter: 0.006, springStrength: 4.8, rotY: 0.12 },
-        { scatter: 0.18, springStrength: 2.6, noiseStrength: 0.12, rotY: 0.3, duration: 0.22, ease: 'none' },
+        { morphProgress: 0, scatter: 0.01, springStrength: 5.0, rotY: 0.15 },
+        {
+          scatter: 0.2,
+          springStrength: 2.5,
+          noiseStrength: 0.12,
+          rotY: 0.35,
+          duration: 0.22,
+          ease: 'none',
+        },
         0
       )
       .to(s, { morphProgress: 1, duration: 0.5, ease: 'none' }, 0.22)
       .to(
         s,
-        { scatter: 0.12, springStrength: 3.2, noiseStrength: 0.09, rotY: 0.4, duration: 0.28, ease: 'none' },
+        {
+          scatter: 0.1,
+          springStrength: 3.4,
+          noiseStrength: 0.08,
+          rotY: 0.45,
+          duration: 0.28,
+          ease: 'none',
+        },
         0.72
       );
     this.triggers.push(manTl.scrollTrigger);
@@ -136,7 +158,7 @@ export default class TimelineController {
     const f1Tl = gsap.timeline({
       scrollTrigger: {
         trigger: '#feature-01',
-        start: 'top 75%',
+        start: 'top 80%',
         end: 'bottom top',
         scrub,
         onEnter: () => {
@@ -159,14 +181,27 @@ export default class TimelineController {
     f1Tl
       .fromTo(
         s,
-        { morphProgress: 0, scatter: 0.12, springStrength: 3.2, rotY: 0.4 },
-        { scatter: 0.22, springStrength: 2.4, rotY: 0.55, duration: 0.2, ease: 'none' },
+        { morphProgress: 0, scatter: 0.1, springStrength: 3.4, rotY: 0.45 },
+        {
+          scatter: 0.22,
+          springStrength: 2.3,
+          rotY: 0.6,
+          duration: 0.2,
+          ease: 'none',
+        },
         0
       )
       .to(s, { morphProgress: 1, duration: 0.52, ease: 'none' }, 0.2)
       .to(
         s,
-        { scatter: 0.02, springStrength: 5.0, noiseStrength: 0.04, rotY: 0.7, duration: 0.28, ease: 'none' },
+        {
+          scatter: 0.02,
+          springStrength: 5.2,
+          noiseStrength: 0.035,
+          rotY: 0.75,
+          duration: 0.28,
+          ease: 'none',
+        },
         0.72
       );
     this.triggers.push(f1Tl.scrollTrigger);
@@ -175,7 +210,7 @@ export default class TimelineController {
     const f2Tl = gsap.timeline({
       scrollTrigger: {
         trigger: '#feature-02',
-        start: 'top 75%',
+        start: 'top 80%',
         end: 'bottom top',
         scrub,
         onEnter: () => {
@@ -198,14 +233,27 @@ export default class TimelineController {
     f2Tl
       .fromTo(
         s,
-        { morphProgress: 0, scatter: 0.02, springStrength: 5.0, rotY: 0.7 },
-        { scatter: 0.14, springStrength: 2.5, rotY: 0.95, duration: 0.2, ease: 'none' },
+        { morphProgress: 0, scatter: 0.02, springStrength: 5.2, rotY: 0.75 },
+        {
+          scatter: 0.14,
+          springStrength: 2.4,
+          rotY: 1.0,
+          duration: 0.2,
+          ease: 'none',
+        },
         0
       )
       .to(s, { morphProgress: 1, duration: 0.52, ease: 'none' }, 0.2)
       .to(
         s,
-        { scatter: 0.015, springStrength: 4.8, noiseStrength: 0.04, rotY: 1.1, duration: 0.28, ease: 'none' },
+        {
+          scatter: 0.015,
+          springStrength: 5.0,
+          noiseStrength: 0.04,
+          rotY: 1.15,
+          duration: 0.28,
+          ease: 'none',
+        },
         0.72
       );
     this.triggers.push(f2Tl.scrollTrigger);
@@ -214,7 +262,7 @@ export default class TimelineController {
     const f3Tl = gsap.timeline({
       scrollTrigger: {
         trigger: '#feature-03',
-        start: 'top 75%',
+        start: 'top 80%',
         end: 'bottom top',
         scrub,
         onEnter: () => {
@@ -229,7 +277,7 @@ export default class TimelineController {
           this.morph?.setProgress(1);
         },
         onUpdate: (self) => {
-          this._cam('FEATURE_03', 'CTA', self.progress * 0.4);
+          this._cam('FEATURE_03', 'CTA', self.progress * 0.45);
           this._sync();
         },
       },
@@ -237,14 +285,27 @@ export default class TimelineController {
     f3Tl
       .fromTo(
         s,
-        { morphProgress: 0, scatter: 0.015, springStrength: 4.8, rotY: 1.1 },
-        { scatter: 0.16, springStrength: 2.4, rotY: 1.35, duration: 0.2, ease: 'none' },
+        { morphProgress: 0, scatter: 0.015, springStrength: 5.0, rotY: 1.15 },
+        {
+          scatter: 0.16,
+          springStrength: 2.3,
+          rotY: 1.4,
+          duration: 0.2,
+          ease: 'none',
+        },
         0
       )
       .to(s, { morphProgress: 1, duration: 0.52, ease: 'none' }, 0.2)
       .to(
         s,
-        { scatter: 0.01, springStrength: 5.4, noiseStrength: 0.03, rotY: 1.55, duration: 0.28, ease: 'none' },
+        {
+          scatter: 0.01,
+          springStrength: 5.6,
+          noiseStrength: 0.03,
+          rotY: 1.6,
+          duration: 0.28,
+          ease: 'none',
+        },
         0.72
       );
     this.triggers.push(f3Tl.scrollTrigger);
@@ -253,10 +314,10 @@ export default class TimelineController {
     const ctaTl = gsap.timeline({
       scrollTrigger: {
         trigger: '#cta',
-        start: 'top 70%',
-        end: 'bottom 30%',
+        start: 'top 75%',
+        end: 'bottom 25%',
         scrub,
-        onUpdate: (self) => {
+        onUpdate: () => {
           this._cam('CTA', 'CTA', 0);
           this._sync();
         },
@@ -264,13 +325,25 @@ export default class TimelineController {
     });
     ctaTl.fromTo(
       s,
-      { gather: 0, scale: 1, springStrength: 5.4, scatter: 0.01 },
-      { gather: 1, scale: 0.88, springStrength: 7.0, scatter: 0, noiseStrength: 0.015, ease: 'none', duration: 1 },
+      { gather: 0, scale: 1, springStrength: 5.6, scatter: 0.01 },
+      {
+        gather: 1,
+        scale: 0.86,
+        springStrength: 7.2,
+        scatter: 0,
+        noiseStrength: 0.012,
+        ease: 'none',
+        duration: 1,
+      },
       0
     );
     this.triggers.push(ctaTl.scrollTrigger);
 
-    requestAnimationFrame(() => ScrollTrigger.refresh());
+    // Ensure layout + triggers are measured after DOM paint
+    requestAnimationFrame(() => {
+      ScrollTrigger.refresh();
+    });
+    setTimeout(() => ScrollTrigger.refresh(), 200);
   }
 
   update() {
@@ -285,7 +358,7 @@ export default class TimelineController {
     const s = this.state;
     if (this.particles) {
       if (this.particles.mesh) {
-        this.particles.mesh.scale.setScalar(1.05 * s.scale);
+        this.particles.mesh.scale.setScalar(1.12 * s.scale);
       }
       this.particles._timelineRotY = s.rotY;
       this.particles._timelineOpacity = s.opacity;
