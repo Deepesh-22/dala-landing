@@ -14,12 +14,12 @@ export function prefersReducedMotion() {
   );
 }
 
-/** Adaptive particle count by device capability */
+/** Adaptive particle count — higher on desktop for brain fold detail */
 export function getParticleCount() {
-  if (typeof window === 'undefined') return 8000;
+  if (typeof window === 'undefined') return 12000;
   const w = window.innerWidth;
   const cores = navigator.hardwareConcurrency || 4;
-  if (w < 640 || cores <= 2) return 4500;
-  if (w < 1024 || cores <= 4) return 7000;
-  return 10000;
+  if (w < 640 || cores <= 2) return 5000;
+  if (w < 1024 || cores <= 4) return 9000;
+  return 14000;
 }
