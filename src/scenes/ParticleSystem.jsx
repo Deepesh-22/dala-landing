@@ -46,6 +46,7 @@ export default function ParticleSystem({
     }
   }, []);
 
+  // MUST be declared before any effect that references it
   const dummy = useMemo(() => new THREE.Object3D(), []);
   const colorTmp = useMemo(() => new THREE.Color(), []);
 
@@ -56,8 +57,7 @@ export default function ParticleSystem({
 
     for (let i = 0; i < count; i++) {
       const seed = hash01(i);
-      // Small but visible wire triangles
-      scales[i] = 0.05 + seed * 0.055;
+      scales[i] = 0.055 + seed * 0.06;
 
       const x = pos[i * 3] || 0;
       const y = pos[i * 3 + 1] || 0;
@@ -69,7 +69,7 @@ export default function ParticleSystem({
       if (!Number.isFinite(band) || band < 0) band = 0;
       const c = PALETTE[band] || PALETTE[0];
 
-      const dim = 0.8 + hash01(i + 91) * 0.25;
+      const dim = 0.85 + hash01(i + 91) * 0.2;
       colors[i * 3] = Math.min(1, c.r * dim);
       colors[i * 3 + 1] = Math.min(1, c.g * dim);
       colors[i * 3 + 2] = Math.min(1, c.b * dim);
@@ -96,9 +96,9 @@ export default function ParticleSystem({
     () =>
       new THREE.MeshBasicMaterial({
         color: 0xffffff,
-        wireframe: true, // hollow triangular outlines
+        wireframe: true,
         transparent: true,
-        opacity: 0.9,
+        opacity: 0.95,
         depthWrite: false,
         side: THREE.DoubleSide,
         toneMapped: false,
@@ -118,7 +118,7 @@ export default function ParticleSystem({
       const pz = pos[i * 3 + 2] ?? 0;
 
       dummy.position.set(px, py, pz);
-      dummy.scale.setScalar(scales[i] ?? 0.05);
+      dummy.scale.setScalar(scales[i] ?? 0.06);
       dummy.rotation.set(
         hash01(i + 1) * 0.9,
         hash01(i + 2) * Math.PI * 2,
@@ -141,8 +141,6 @@ export default function ParticleSystem({
     mesh.frustumCulled = false;
     mesh.visible = true;
   }, [count, data, dummy, colorTmp]);
-
-  const colorTmp = useMemo(() => new THREE.Color(), []);
 
   useFrame(({ clock }) => {
     if (reducedMotion || !groupRef.current) return;
