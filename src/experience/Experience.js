@@ -1,13 +1,16 @@
+/**
+ * PHASE 1 — Foundation only
+ * Pure black scene + camera + renderer + RAF loop.
+ * Particles / morph / ambient / timeline added in later phases.
+ */
 import * as THREE from 'three';
-import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import Scene from './Scene.js';
 import Camera from './Camera.js';
 import Renderer from './Renderer.js';
-import Particles from './particles/Particles.js';
-import AmbientLayer from './particles/AmbientLayer.js';
-import TimelineController from './animation/Timeline.js';
-import SmoothScroll from './utils/SmoothScroll.js';
-import { isWebGLAvailable, prefersReducedMotion } from './utils/device.js';
+import { isWebGLAvailable } from './utils/device.js';
+
+// Set to 1, 2, 3... to enable up to that phase
+export const BUILD_PHASE = 1;
 
 export default class Experience {
   constructor({ canvas, onProgress } = {}) {
@@ -24,48 +27,46 @@ export default class Experience {
     });
 
     if (!this.webglOk) {
+      console.warn('[Phase1] WebGL not available');
       this.onProgress(1);
       this._readyResolve?.();
       return;
     }
 
-    this.onProgress(0.15);
+    this.onProgress(0.2);
 
     this.clock = new THREE.Clock();
     this.isVisible = true;
     this._prevTime = 0;
     this._running = false;
     this._frames = 0;
-    this.reducedMotion = prefersReducedMotion();
 
-    this.smoothScroll = new SmoothScroll();
-    this.onProgress(0.3);
-
+    // Phase 1 core
     this.scene = new Scene();
     this.camera = new Camera({ sizes: this.sizes });
     this.renderer = new Renderer({ canvas: this.canvas, sizes: this.sizes });
-    this.onProgress(0.45);
+    this.onProgress(0.6);
 
-    this.particles = new Particles({ scene: this.scene });
-    this.ambient = new AmbientLayer({ scene: this.scene });
-
-    if (this.particles.mesh) {
-      this.particles.mesh.position.set(0.45, 0.05, 0);
-    }
-    this.onProgress(0.7);
-
-    if (this.reducedMotion && this.particles.morph) {
-      this.particles.morph.params.noiseStrength = 0.02;
-      this.particles.morph.params.scatter = 0;
-      this.particles.morph.params.springStrength = 6;
-    }
-
+    // Phase 2+ hooks (empty until enabled)
+    this.particles = null;
+    this.ambient = null;
     this.timeline = null;
-    requestAnimationFrame(() => {
-      this.timeline = new TimelineController({ experience: this });
-      this.onProgress(0.9);
-      ScrollTrigger.refresh();
-    });
+    this.smoothScroll = null;
+
+    if (BUILD_PHASE >= 2) {
+      this._initPhase2();
+    }
+    if (BUILD_PHASE >= 4) {
+      this._initPhase4();
+    }
+    if (BUILD_PHASE >= 5) {
+      this._initPhase5();
+    }
+    if (BUILD_PHASE >= 6) {
+      this._initPhase6();
+    }
+
+    this.onProgress(0.9);
 
     this.onResize = this.onResize.bind(this);
     this.onVisibility = this.onVisibility.bind(this);
@@ -75,7 +76,17 @@ export default class Experience {
     this._running = true;
     this.tick = this.tick.bind(this);
     this.tick();
+
+    console.log(`[Dala] BUILD_PHASE = ${BUILD_PHASE}`);
   }
+
+  _initPhase2() {
+    // Loaded dynamically in later commits when BUILD_PHASE >= 2
+  }
+
+  _initPhase4() {}
+  _initPhase5() {}
+  _initPhase6() {}
 
   onResize() {
     clearTimeout(this._resizeTimer);
@@ -84,8 +95,7 @@ export default class Experience {
       this.sizes.height = window.innerHeight;
       this.camera.resize();
       this.renderer.resize();
-      this.smoothScroll?.resize();
-      ScrollTrigger.refresh();
+      this.smoothScroll?.resize?.();
     }, 100);
   }
 
@@ -111,15 +121,15 @@ export default class Experience {
     const delta = Math.min(elapsed - this._prevTime, 0.05);
     this._prevTime = elapsed;
 
-    this.timeline?.update();
+    this.timeline?.update?.();
     this.camera.update(delta);
-    this.particles?.update(elapsed, delta);
-    this.ambient?.update(elapsed);
+    this.particles?.update?.(elapsed, delta);
+    this.ambient?.update?.(elapsed);
 
     this.renderer.update(this.scene.instance, this.camera.instance);
 
     this._frames += 1;
-    if (this._frames === 6) {
+    if (this._frames === 4) {
       this.onProgress(1);
       this._readyResolve?.();
     }
@@ -134,10 +144,10 @@ export default class Experience {
     document.removeEventListener('visibilitychange', this.onVisibility);
     if (this.animationId) cancelAnimationFrame(this.animationId);
 
-    this.smoothScroll?.destroy();
-    this.timeline?.destroy();
-    this.ambient?.dispose();
-    this.particles?.dispose();
-    this.renderer?.dispose();
+    this.smoothScroll?.destroy?.();
+    this.timeline?.destroy?.();
+    this.ambient?.dispose?.();
+    this.particles?.dispose?.();
+    this.renderer?.dispose?.();
   }
 }

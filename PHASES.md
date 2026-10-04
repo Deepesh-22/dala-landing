@@ -1,53 +1,37 @@
-# Dala Landing — Build Phases
+# Dala Landing — Phase gates
 
-Build and verify in order. Each phase must look correct before moving on.
+Control progress with `BUILD_PHASE` in `src/experience/Experience.js`.
 
-## Phase 1 — Foundation
-- [x] Vite + React shell
-- [x] Full-viewport black canvas (`#000`)
-- [x] Three.js Scene / Camera / Renderer
-- [x] Fixed canvas behind scroll content
-- [x] Loader overlay
+| Phase | What you should see |
+|-------|---------------------|
+| **1** | Pure black canvas, loader fades, white text "Black canvas only". No particles. |
+| **2** | Multicolored filled triangles floating / forming a cloud |
+| **3** | Clear brain silhouette on hero |
+| **4** | Smooth spring morph when shapes change |
+| **5** | Full sequence + ambient background triangles |
+| **6** | Full scroll page, all sections, camera moves |
 
-**Check:** Black screen, no purple wash, canvas fills viewport.
+## How to test
 
-## Phase 2 — Triangle particles + color
-- [x] Filled triangle InstancedMesh (not boxes/points)
-- [x] 8-color Dala palette per particle
-- [x] Adaptive count (4.5k–10k by device)
-- [x] Particles readable against pure black
+```bash
+npm install
+npm run dev
+```
 
-**Check:** Multicolored sharp triangles visible; no lag.
-
-## Phase 3 — Brain shape (hero)
-- [x] Procedural brain (hemispheres, fissure, folds, cerebellum)
-- [x] Hero opens on solid brain
-- [x] Soft idle rotation
-
-**Check:** Clear brain silhouette at top of page.
-
-## Phase 4 — Morph system
-- [x] Spring + damping toward target positions
-- [x] Noise / scatter during mid-morph
-- [x] Settle (high spring, low noise) at shape ends
-
-**Check:** Smooth fluid morph, no snap or jitter.
-
-## Phase 5 — Full shape sequence + ambient
-- [x] Scatter, bulb, globe (continents), abstract ribbon
-- [x] Ambient floating triangle layer (never morphs)
-- [x] Scroll pairs: brain→scatter→bulb→globe→abstract
-
-**Check:** Each section shows the right form; background particles drift.
-
-## Phase 6 — Scroll page + polish
-- [x] Lenis smooth scroll + GSAP ScrollTrigger
-- [x] Section copy + CTA
-- [x] Camera states per section
-- [ ] Optional: mouse parallax, text reveal, post-FX
-
-**Check:** Full scroll story matches Dala manifesto feel.
+1. Open http://localhost:5173
+2. Confirm the current phase checklist below
+3. Reply **"Phase N pass"** so the next phase can be enabled
 
 ---
 
-Run: `npm install && npm run dev`
+## Phase 1 checklist (current)
+
+- [ ] Page background is pure black (`#000`) — not purple, not gray
+- [ ] Full-viewport canvas (no white margins)
+- [ ] Loader shows "Phase 1 · Loading" then fades out
+- [ ] Hero text: "Black canvas only"
+- [ ] Console log: `[Dala] BUILD_PHASE = 1`
+- [ ] No WebGL errors in console
+- [ ] Resize window → canvas still fills screen
+
+**When all checked → reply: `Phase 1 pass`**

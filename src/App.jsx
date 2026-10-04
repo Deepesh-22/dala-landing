@@ -1,45 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import Experience from './experience/Experience.js';
+import Experience, { BUILD_PHASE } from './experience/Experience.js';
 
-const SECTIONS = [
-  {
-    id: 'hero',
-    label: 'Manifesto',
-    title: 'Unlock collective wisdom',
-    body: 'Dala turns scattered knowledge into shared intelligence — one particle at a time.',
-  },
-  {
-    id: 'manifesto',
-    label: 'Chaos',
-    title: 'From fragments to form',
-    body: 'Ideas start as noise. We gather them, shape them, and let meaning emerge.',
-  },
-  {
-    id: 'feature-01',
-    label: 'Insight',
-    title: 'Illuminate what matters',
-    body: 'A single spark of clarity can reorganize an entire network of thought.',
-  },
-  {
-    id: 'feature-02',
-    label: 'Scale',
-    title: 'Think in worlds',
-    body: 'Every mind is a continent. Together they form a living map of knowledge.',
-  },
-  {
-    id: 'feature-03',
-    label: 'Flow',
-    title: 'Organic intelligence',
-    body: 'Structures dissolve and reform — fluid, adaptive, always in motion.',
-  },
-  {
-    id: 'cta',
-    label: 'Begin',
-    title: 'Join the collective',
-    body: 'Build the next layer of shared understanding.',
-  },
-];
-
+/**
+ * Phase 1: black canvas + loader only.
+ * Sections appear from Phase 6; kept minimal so Phase 1 is easy to verify.
+ */
 export default function App() {
   const canvasRef = useRef(null);
   const expRef = useRef(null);
@@ -65,27 +30,65 @@ export default function App() {
   return (
     <>
       <div className={`dala-loader ${ready ? 'done' : ''}`}>
-        <span>Loading</span>
+        <span>Phase {BUILD_PHASE} · Loading</span>
       </div>
 
       <canvas ref={canvasRef} className="dala-canvas" />
 
       <div className="dala-page">
-        {SECTIONS.map((s) => (
-          <section key={s.id} id={s.id} className="dala-section">
-            <div className="label">{s.label}</div>
-            <h1>{s.title}</h1>
-            <p>{s.body}</p>
-            {s.id === 'cta' && (
-              <button type="button" className="cta-btn">
-                Get started
-              </button>
-            )}
+        {BUILD_PHASE >= 1 && (
+          <section id="hero" className="dala-section">
+            <div className="label">Phase {BUILD_PHASE} test</div>
+            <h1>
+              {BUILD_PHASE === 1
+                ? 'Black canvas only'
+                : BUILD_PHASE === 2
+                  ? 'Triangle particles'
+                  : BUILD_PHASE === 3
+                    ? 'Brain shape'
+                    : 'Dala landing'}
+            </h1>
+            <p>
+              {BUILD_PHASE === 1
+                ? 'You should see pure black. No purple. Canvas fills the screen. Loader fades out.'
+                : 'Scroll to test morphs when later phases are enabled.'}
+            </p>
           </section>
-        ))}
+        )}
+
+        {BUILD_PHASE >= 6 && (
+          <>
+            <section id="manifesto" className="dala-section">
+              <div className="label">Chaos</div>
+              <h1>From fragments to form</h1>
+              <p>Ideas start as noise. We gather them, shape them, and let meaning emerge.</p>
+            </section>
+            <section id="feature-01" className="dala-section">
+              <div className="label">Insight</div>
+              <h1>Illuminate what matters</h1>
+              <p>A single spark of clarity can reorganize an entire network of thought.</p>
+            </section>
+            <section id="feature-02" className="dala-section">
+              <div className="label">Scale</div>
+              <h1>Think in worlds</h1>
+              <p>Every mind is a continent. Together they form a living map of knowledge.</p>
+            </section>
+            <section id="feature-03" className="dala-section">
+              <div className="label">Flow</div>
+              <h1>Organic intelligence</h1>
+              <p>Structures dissolve and reform — fluid, adaptive, always in motion.</p>
+            </section>
+            <section id="cta" className="dala-section">
+              <div className="label">Begin</div>
+              <h1>Join the collective</h1>
+              <p>Build the next layer of shared understanding.</p>
+              <button type="button" className="cta-btn">Get started</button>
+            </section>
+          </>
+        )}
 
         <footer className="dala-footer">
-          Dala-style particle experience · scroll to morph
+          BUILD_PHASE = {BUILD_PHASE} · dala-landing
         </footer>
       </div>
     </>
