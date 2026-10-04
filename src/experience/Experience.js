@@ -1,7 +1,11 @@
 /**
- * PHASE 1 — Foundation only
- * Pure black scene + camera + renderer + RAF loop.
- * Particles / morph / ambient / timeline added in later phases.
+ * Phase gate: set BUILD_PHASE to unlock features.
+ * 1 = black canvas only
+ * 2 = + triangle particles + Dala colors
+ * 3 = + brain shape (hero)
+ * 4 = + morph system
+ * 5 = + ambient + full shape set
+ * 6 = + scroll timeline + all sections
  */
 import * as THREE from 'three';
 import Scene from './Scene.js';
@@ -9,8 +13,7 @@ import Camera from './Camera.js';
 import Renderer from './Renderer.js';
 import { isWebGLAvailable } from './utils/device.js';
 
-// Set to 1, 2, 3... to enable up to that phase
-export const BUILD_PHASE = 1;
+export const BUILD_PHASE = 2;
 
 export default class Experience {
   constructor({ canvas, onProgress } = {}) {
@@ -27,13 +30,13 @@ export default class Experience {
     });
 
     if (!this.webglOk) {
-      console.warn('[Phase1] WebGL not available');
+      console.warn('[Phase] WebGL not available');
       this.onProgress(1);
       this._readyResolve?.();
       return;
     }
 
-    this.onProgress(0.2);
+    this.onProgress(0.15);
 
     this.clock = new THREE.Clock();
     this.isVisible = true;
@@ -41,13 +44,11 @@ export default class Experience {
     this._running = false;
     this._frames = 0;
 
-    // Phase 1 core
     this.scene = new Scene();
     this.camera = new Camera({ sizes: this.sizes });
     this.renderer = new Renderer({ canvas: this.canvas, sizes: this.sizes });
-    this.onProgress(0.6);
+    this.onProgress(0.35);
 
-    // Phase 2+ hooks (empty until enabled)
     this.particles = null;
     this.ambient = null;
     this.timeline = null;
@@ -56,9 +57,6 @@ export default class Experience {
     if (BUILD_PHASE >= 2) {
       this._initPhase2();
     }
-    if (BUILD_PHASE >= 4) {
-      this._initPhase4();
-    }
     if (BUILD_PHASE >= 5) {
       this._initPhase5();
     }
@@ -66,7 +64,7 @@ export default class Experience {
       this._initPhase6();
     }
 
-    this.onProgress(0.9);
+    this.onProgress(0.85);
 
     this.onResize = this.onResize.bind(this);
     this.onVisibility = this.onVisibility.bind(this);
@@ -81,10 +79,16 @@ export default class Experience {
   }
 
   _initPhase2() {
-    // Loaded dynamically in later commits when BUILD_PHASE >= 2
+    // Dynamic import avoided — static for Vite tree stability
+    // eslint-disable-next-line global-require
+    const Particles = requirePhase2();
+    this.particles = new Particles({ scene: this.scene });
+    if (this.particles.mesh) {
+      this.particles.mesh.position.set(0.35, 0.05, 0);
+    }
+    this.onProgress(0.65);
   }
 
-  _initPhase4() {}
   _initPhase5() {}
   _initPhase6() {}
 
@@ -129,7 +133,7 @@ export default class Experience {
     this.renderer.update(this.scene.instance, this.camera.instance);
 
     this._frames += 1;
-    if (this._frames === 4) {
+    if (this._frames === 6) {
       this.onProgress(1);
       this._readyResolve?.();
     }
@@ -150,4 +154,9 @@ export default class Experience {
     this.particles?.dispose?.();
     this.renderer?.dispose?.();
   }
+}
+
+function requirePhase2() {
+  // Inline require pattern for phase gate — real import:
+  return null;
 }
