@@ -1,6 +1,6 @@
 /**
  * Instanced hollow-triangle shaders.
- * Morph + float + spin all on GPU — no per-particle JS loop.
+ * Morph + float + spin on GPU.
  */
 
 export const particleVertexShader = /* glsl */ `
@@ -23,19 +23,18 @@ void main() {
   float e = m * m * (3.0 - 2.0 * m);
   vec3 base = mix(aPosA, aPosB, e);
 
-  float t = uTime * 0.35 + aOffset;
+  float t = uTime * 0.32 + aOffset;
   vec3 drift = vec3(
     sin(t + aSeed * 6.2831) * uFloatAmp,
-    cos(t * 1.3 + aSeed * 4.1) * uFloatAmp * 0.85,
-    sin(t * 0.7 + aSeed * 9.2) * uFloatAmp
+    cos(t * 1.25 + aSeed * 4.1) * uFloatAmp * 0.9,
+    sin(t * 0.75 + aSeed * 9.2) * uFloatAmp
   );
 
   float mid = sin(m * 3.14159);
   vec3 scatterDir = vec3(aSeed, fract(aSeed * 1.7), fract(aSeed * 2.3)) - 0.5;
-  vec3 scatter = scatterDir * mid * 0.35;
+  vec3 scatter = scatterDir * mid * 0.32;
 
-  // Spin local triangle in XY
-  float ang = aSeed * 6.2831 + uTime * 0.12;
+  float ang = aSeed * 6.2831 + uTime * 0.08;
   float c = cos(ang);
   float s = sin(ang);
   vec2 lp = position.xy * aScale;
@@ -47,8 +46,9 @@ void main() {
   gl_Position = projectionMatrix * mvPos;
 
   vColor = aColor;
+  // Keep alpha modest so stacked triangles don't bleach to pure white
   float lum = dot(aColor, vec3(0.299, 0.587, 0.114));
-  vAlpha = 0.28 + lum * 0.55;
+  vAlpha = 0.35 + lum * 0.25;
 }
 `;
 
