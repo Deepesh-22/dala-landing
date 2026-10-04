@@ -8,10 +8,10 @@
 | **2** | Multicolored filled triangles, slow rotate |
 | **3** | Brain silhouette |
 | **4** | Morph physics (auto cycle) |
-| **5** ← **current** | Ambient + all shapes |
-| **6** | Full scroll page |
+| **5** | Ambient + all shapes |
+| **6** ← **current** | Full scroll page |
 
-## Phase 5 checklist
+## Phase 6 checklist
 
 ```bash
 git pull
@@ -19,15 +19,33 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:5173
+Open http://localhost:5173 and **scroll slowly**.
 
-- [ ] Console: `[Dala] BUILD_PHASE = 5`
-- [ ] **Sparse ambient triangles** drift in the background (never morph)
-- [ ] Main form still cycles: brain → scatter → bulb → globe → abstract
-- [ ] Ambient stays soft / low-opacity so the hero shape reads clearly
-- [ ] No console errors, smooth ~60fps
+- [ ] Console: `[Dala] BUILD_PHASE = 6`
+- [ ] Smooth scroll (Lenis)
+- [ ] **Hero** → brain silhouette + “Your mind is the map”
+- [ ] **Manifesto** → particles scatter
+- [ ] **Feature 01** → light bulb
+- [ ] **Feature 02** → globe
+- [ ] **Feature 03** → abstract ribbon
+- [ ] **CTA** → particles gather / tighten
+- [ ] Camera shifts per section
+- [ ] Ambient drift still visible in background
+- [ ] No hard snaps; spring morph throughout
+- [ ] Smooth ~60fps, no console errors
 
-**When all pass → reply: `Phase 5 pass`**
+**When all pass → reply: `Phase 6 pass`**
+
+## Scroll story
+
+```
+HERO        brain
+MANIFESTO   brain → scatter
+FEATURE 01  scatter → bulb
+FEATURE 02  bulb → globe
+FEATURE 03  globe → abstract
+CTA         gather
+```
 
 ## Repo
 
