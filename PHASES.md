@@ -3,26 +3,25 @@
 ## Phase 1 — Foundation ✅
 - Vite + React + Three + R3F + GSAP + Lenis
 - Full-viewport black site, fixed WebGL canvas
-- Smooth scroll, DPR cap, reduced-motion
 
 ## Phase 2 — Navigation ✅
-- Fixed minimal nav, logo left, links + purple CTA right
-- Mobile menu button only
+- Fixed minimal nav, logo + purple CTA
 
 ## Phase 3 — Particle engine ✅
 - InstancedMesh wireframe triangles
-- Multicolor palette, instancing, group idle motion
 
 ## Phase 4 — Brain form ✅
-- Dual hemispheres + central fissure
-- Cerebellum + brain stem
-- Dense surface / sparse interior / minimal aura
-- Finer triangle symbols
-- Right-half composition (left open for type)
-- Yellow/white dominant, purple/blue secondary
-- Subtle rotate + breathe + camera drift
+- Dual hemispheres, fissure, cerebellum, stem
+- Right-half composition, fine triangles
+
+## Phase 5 — Floating triangle field ✅
+- Separate layer from brain
+- ~400–900 particles (device-based)
+- Depth-based size/brightness
+- Slow float, rotate, parallax
+- Biased away from left typography zone
+- Low opacity — never overpowers type
 
 ## Next
-- Phase 5: mouse interaction
-- Phase 6: shape morph system
+- Phase 6: shape morph
 - Phase 7+: scroll choreography

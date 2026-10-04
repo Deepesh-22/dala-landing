@@ -2,10 +2,12 @@ import { Canvas } from '@react-three/fiber';
 import { Suspense } from 'react';
 import ParticleScene from '../../scenes/ParticleScene.jsx';
 import { getCappedDpr } from '../../hooks/useResponsive.js';
+import { useResponsive } from '../../hooks/useResponsive.js';
 import WebGLErrorBoundary from './WebGLErrorBoundary.jsx';
 import FallbackVisual from './FallbackVisual.jsx';
 
 export default function WebGLCanvas({ reducedMotion = false }) {
+  const { isMobile } = useResponsive();
   const dpr = reducedMotion ? 1 : getCappedDpr();
 
   return (
@@ -25,7 +27,7 @@ export default function WebGLCanvas({ reducedMotion = false }) {
             fov: 45,
             near: 0.1,
             far: 100,
-            position: [0, 0.2, 4.5],
+            position: [-0.15, 0.2, 4.4],
           }}
           style={{
             position: 'absolute',
@@ -37,11 +39,11 @@ export default function WebGLCanvas({ reducedMotion = false }) {
           }}
           onCreated={({ gl, camera }) => {
             gl.setClearColor(0x000000, 1);
-            camera.lookAt(0, 0, 0);
+            camera.lookAt(0.85, 0.05, 0);
           }}
         >
           <Suspense fallback={null}>
-            <ParticleScene reducedMotion={reducedMotion} />
+            <ParticleScene reducedMotion={reducedMotion} isMobile={isMobile} />
           </Suspense>
         </Canvas>
       </WebGLErrorBoundary>
