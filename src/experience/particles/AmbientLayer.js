@@ -14,17 +14,18 @@ const DALA_COLORS = [
 
 /**
  * Always-on sparse floating triangles in the black void.
- * Never morphs — pure ambient field like live Dala.
+ * Never morphs — pure ambient field (Dala-style depth).
  */
 export default class AmbientLayer {
   constructor({ scene }) {
     this.scene = scene;
-    this.count = Math.min(900, Math.floor(getParticleCount() * 0.1));
+    // ~12% of main count, capped — stays sparse so main shape reads
+    this.count = Math.min(1200, Math.floor(getParticleCount() * 0.12));
     this._create();
   }
 
   _create() {
-    const s = 0.008;
+    const s = 0.007;
     const tri = new THREE.BufferGeometry();
     tri.setAttribute(
       'position',
@@ -41,7 +42,7 @@ export default class AmbientLayer {
     const mat = new THREE.MeshBasicMaterial({
       color: 0xffffff,
       transparent: true,
-      opacity: 0.35,
+      opacity: 0.28,
       depthWrite: false,
       side: THREE.DoubleSide,
     });
@@ -49,11 +50,14 @@ export default class AmbientLayer {
     this.mesh = new THREE.InstancedMesh(tri, mat, this.count);
     this.mesh.frustumCulled = false;
     this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    // Render behind main particle system slightly via render order
+    this.mesh.renderOrder = -1;
 
     const colors = new Float32Array(this.count * 3);
     this._bases = new Float32Array(this.count * 3);
     this._drifts = new Float32Array(this.count * 3);
     this._spins = new Float32Array(this.count);
+    this._scales = new Float32Array(this.count);
 
     for (let i = 0; i < this.count; i++) {
       const col = DALA_COLORS[i % DALA_COLORS.length];
@@ -61,18 +65,20 @@ export default class AmbientLayer {
       colors[i * 3 + 1] = col.g;
       colors[i * 3 + 2] = col.b;
 
-      // Fib-ish scatter in large volume
-      const t = i / this.count;
+      // Fib scatter in a large volume around the hero
+      const t = i / Math.max(this.count, 1);
       const incl = Math.acos(1 - 2 * t);
-      const az = Math.PI * 2 * 1.618 * i;
-      this._bases[i * 3] = Math.sin(incl) * Math.cos(az) * 3.5;
-      this._bases[i * 3 + 1] = Math.cos(incl) * 2.6;
-      this._bases[i * 3 + 2] = Math.sin(incl) * Math.sin(az) * 3.5;
+      const az = Math.PI * 2 * 1.6180339887 * i;
+      const radius = 2.8 + (i % 7) * 0.35;
+      this._bases[i * 3] = Math.sin(incl) * Math.cos(az) * radius;
+      this._bases[i * 3 + 1] = Math.cos(incl) * (radius * 0.7);
+      this._bases[i * 3 + 2] = Math.sin(incl) * Math.sin(az) * radius;
 
-      this._drifts[i * 3] = (Math.random() - 0.5) * 0.12;
-      this._drifts[i * 3 + 1] = (Math.random() - 0.5) * 0.08;
-      this._drifts[i * 3 + 2] = (Math.random() - 0.5) * 0.12;
-      this._spins[i] = (Math.random() - 0.5) * 0.35;
+      this._drifts[i * 3] = (Math.sin(i * 0.37) * 0.5) * 0.1;
+      this._drifts[i * 3 + 1] = (Math.cos(i * 0.51) * 0.5) * 0.07;
+      this._drifts[i * 3 + 2] = (Math.sin(i * 0.73) * 0.5) * 0.1;
+      this._spins[i] = (Math.sin(i * 1.1) * 0.5) * 0.3;
+      this._scales[i] = 0.4 + (i % 6) * 0.1;
     }
     this.mesh.instanceColor = new THREE.InstancedBufferAttribute(colors, 3);
 
@@ -84,21 +90,21 @@ export default class AmbientLayer {
     if (!this.mesh) return;
 
     for (let i = 0; i < this.count; i++) {
-      let x = this._bases[i * 3] + this._drifts[i * 3] * elapsed * 0.25;
+      let x = this._bases[i * 3] + this._drifts[i * 3] * elapsed * 0.2;
       let y =
         this._bases[i * 3 + 1] +
-        this._drifts[i * 3 + 1] * elapsed * 0.25 +
-        Math.sin(elapsed * 0.2 + i) * 0.06;
-      let z = this._bases[i * 3 + 2] + this._drifts[i * 3 + 2] * elapsed * 0.25;
+        this._drifts[i * 3 + 1] * elapsed * 0.2 +
+        Math.sin(elapsed * 0.18 + i * 0.4) * 0.08;
+      let z = this._bases[i * 3 + 2] + this._drifts[i * 3 + 2] * elapsed * 0.2;
 
-      // Soft wrap
-      x = ((x + 4) % 8) - 4;
-      y = ((y + 3) % 6) - 3;
-      z = ((z + 4) % 8) - 4;
+      // Soft toroidal wrap so field never empties
+      x = ((x + 5) % 10) - 5;
+      y = ((y + 3.5) % 7) - 3.5;
+      z = ((z + 5) % 10) - 5;
 
       this._dummy.position.set(x, y, z);
-      this._dummy.scale.setScalar(0.5 + (i % 5) * 0.12);
-      this._dummy.rotation.z = elapsed * this._spins[i] + i;
+      this._dummy.scale.setScalar(this._scales[i]);
+      this._dummy.rotation.z = elapsed * this._spins[i] + i * 0.5;
       this._dummy.updateMatrix();
       this.mesh.setMatrixAt(i, this._dummy.matrix);
     }
