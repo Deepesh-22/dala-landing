@@ -7,16 +7,16 @@ import {
 } from './particleShaders.js';
 import { generateShape, getParticleCount } from './shapes.js';
 
-/** Reference-inspired palette */
+/** Reference palette — less pure white so field stays colorful */
 const PALETTE = [
-  new THREE.Color('#ffffff'),
-  new THREE.Color('#f5d76e'), // yellow
-  new THREE.Color('#c39bd3'), // light purple
-  new THREE.Color('#9b59b6'), // purple
-  new THREE.Color('#3498db'), // blue
-  new THREE.Color('#1abc9c'), // cyan/teal
-  new THREE.Color('#2ecc71'), // green
-  new THREE.Color('#e84393'), // magenta
+  new THREE.Color('#f0ece6'),
+  new THREE.Color('#f5d76e'),
+  new THREE.Color('#e8c4ff'),
+  new THREE.Color('#9b59b6'),
+  new THREE.Color('#5dade2'),
+  new THREE.Color('#1abc9c'),
+  new THREE.Color('#58d68d'),
+  new THREE.Color('#e84393'),
 ];
 
 function hash01(i) {
@@ -24,10 +24,6 @@ function hash01(i) {
   return x - Math.floor(x);
 }
 
-/**
- * Core particle engine — GPU instanced hollow triangles.
- * Morph between shapes via `morphProgress` + `shapeA` / `shapeB` props (later phases).
- */
 export default function ParticleSystem({
   shapeA = 'brain',
   shapeB = 'brain',
@@ -38,10 +34,8 @@ export default function ParticleSystem({
   const materialRef = useRef(null);
   const count = useMemo(() => getParticleCount(), []);
 
-  // Tiny triangle geometry (local space; scaled per instance in shader)
   const geometry = useMemo(() => {
     const geo = new THREE.BufferGeometry();
-    // Equilateral-ish triangle — wireframe stroke via material.wireframe
     const s = 1;
     geo.setAttribute(
       'position',
@@ -58,25 +52,25 @@ export default function ParticleSystem({
   }, []);
 
   const material = useMemo(() => {
-    const mat = new THREE.ShaderMaterial({
+    return new THREE.ShaderMaterial({
       vertexShader: particleVertexShader,
       fragmentShader: particleFragmentShader,
       transparent: true,
       depthWrite: false,
-      blending: THREE.AdditiveBlending,
+      depthTest: true,
+      // Normal blending keeps colors readable (additive was bleaching to white)
+      blending: THREE.NormalBlending,
       wireframe: true,
       uniforms: {
         uTime: { value: 0 },
         uMorph: { value: 0 },
-        uFloatAmp: { value: reducedMotion ? 0 : 0.028 },
+        uFloatAmp: { value: reducedMotion ? 0 : 0.022 },
       },
     });
-    return mat;
   }, [reducedMotion]);
 
   materialRef.current = material;
 
-  // Build shape buffers + per-particle attributes once
   const { attrs, dummy } = useMemo(() => {
     const posA = generateShape(shapeA, count);
     const posB = generateShape(shapeB, count);
@@ -96,15 +90,20 @@ export default function ParticleSystem({
       aSeed[i] = seed;
       aOffset[i] = hash01(i + 17) * Math.PI * 2;
 
-      // Size variation — mostly tiny
-      aScale[i] = 0.006 + seed * 0.01;
+      // Smaller triangles — readable outlines, less solid fill
+      aScale[i] = 0.0045 + seed * 0.007;
 
-      // Color regions by seed bands (not uniform brightness)
-      const band = Math.floor(seed * PALETTE.length) % PALETTE.length;
+      // Color by spatial region so hemispheres / lobes vary
+      const x = posA[i * 3];
+      const y = posA[i * 3 + 1];
+      const z = posA[i * 3 + 2];
+      const region =
+        (Math.abs(x) * 1.4 + (y + 0.5) * 0.6 + (z + 0.5) * 0.4 + seed) * 0.55;
+      const band = Math.floor(region * PALETTE.length) % PALETTE.length;
       const col = PALETTE[band].clone();
-      // Density: some particles dimmer
-      const dim = 0.45 + hash01(i + 99) * 0.55;
+      const dim = 0.55 + hash01(i + 99) * 0.45;
       col.multiplyScalar(dim);
+
       aColor[i * 3] = col.r;
       aColor[i * 3 + 1] = col.g;
       aColor[i * 3 + 2] = col.b;
@@ -116,41 +115,24 @@ export default function ParticleSystem({
     };
   }, [count, shapeA, shapeB]);
 
-  // Attach instanced attributes after mesh mounts
   useEffect(() => {
     const mesh = meshRef.current;
     if (!mesh) return;
 
     const geo = mesh.geometry;
-    geo.setAttribute(
-      'aPosA',
-      new THREE.InstancedBufferAttribute(attrs.aPosA, 3)
-    );
-    geo.setAttribute(
-      'aPosB',
-      new THREE.InstancedBufferAttribute(attrs.aPosB, 3)
-    );
-    geo.setAttribute(
-      'aSeed',
-      new THREE.InstancedBufferAttribute(attrs.aSeed, 1)
-    );
-    geo.setAttribute(
-      'aScale',
-      new THREE.InstancedBufferAttribute(attrs.aScale, 1)
-    );
-    geo.setAttribute(
-      'aColor',
-      new THREE.InstancedBufferAttribute(attrs.aColor, 3)
-    );
+    geo.setAttribute('aPosA', new THREE.InstancedBufferAttribute(attrs.aPosA, 3));
+    geo.setAttribute('aPosB', new THREE.InstancedBufferAttribute(attrs.aPosB, 3));
+    geo.setAttribute('aSeed', new THREE.InstancedBufferAttribute(attrs.aSeed, 1));
+    geo.setAttribute('aScale', new THREE.InstancedBufferAttribute(attrs.aScale, 1));
+    geo.setAttribute('aColor', new THREE.InstancedBufferAttribute(attrs.aColor, 3));
     geo.setAttribute(
       'aOffset',
       new THREE.InstancedBufferAttribute(attrs.aOffset, 1)
     );
 
-    // Identity instance matrices (positions live in attributes)
     for (let i = 0; i < count; i++) {
       dummy.position.set(0, 0, 0);
-      dummy.rotation.set(0, 0, hash01(i + 3) * Math.PI * 2);
+      dummy.rotation.set(0, 0, 0);
       dummy.scale.set(1, 1, 1);
       dummy.updateMatrix();
       mesh.setMatrixAt(i, dummy.matrix);
@@ -159,7 +141,6 @@ export default function ParticleSystem({
     mesh.frustumCulled = false;
   }, [attrs, count, dummy]);
 
-  // GPU time + morph only — no per-particle JS loop
   useFrame(({ clock }) => {
     const mat = materialRef.current;
     if (!mat) return;
