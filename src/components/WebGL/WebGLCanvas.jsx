@@ -5,10 +5,8 @@ import { getCappedDpr } from '../../hooks/useResponsive.js';
 
 /**
  * Fixed full-viewport WebGL layer.
- * Does not scroll with the page.
  */
 export default function WebGLCanvas({ reducedMotion = false }) {
-  // Mobile / reduced-motion: still mount canvas (black), skip heavy work later
   const dpr = reducedMotion ? 1 : getCappedDpr();
 
   return (
@@ -20,14 +18,14 @@ export default function WebGLCanvas({ reducedMotion = false }) {
           alpha: false,
           powerPreference: 'high-performance',
         }}
-        camera={{ fov: 40, near: 0.1, far: 80, position: [0, 0.2, 4] }}
+        camera={{ fov: 38, near: 0.1, far: 80, position: [0.2, 0.15, 3.6] }}
         style={{ background: '#000000' }}
         onCreated={({ gl }) => {
           gl.setClearColor('#000000', 1);
         }}
       >
         <Suspense fallback={null}>
-          <ParticleScene />
+          <ParticleScene reducedMotion={reducedMotion} />
         </Suspense>
       </Canvas>
     </div>
