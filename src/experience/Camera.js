@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 
 export const CAMERA_STATES = {
-  HERO: { position: [0.4, 0.12, 4.0], lookAt: [0.6, 0.05, 0], fov: 40, damping: 0.055 },
+  // Closer + slightly lower FOV so brain folds read clearly
+  HERO: { position: [0.25, 0.18, 3.55], lookAt: [0.05, 0.08, 0], fov: 36, damping: 0.055 },
   MANIFESTO: { position: [-0.15, 0.3, 5.4], lookAt: [0.5, 0.08, 0], fov: 38, damping: 0.045 },
   FEATURE_01: { position: [1.2, 0.45, 5.1], lookAt: [0.5, 0.05, 0], fov: 42, damping: 0.04 },
   FEATURE_02: { position: [-0.5, 0.28, 5.3], lookAt: [0.6, 0.06, 0], fov: 43, damping: 0.038 },
