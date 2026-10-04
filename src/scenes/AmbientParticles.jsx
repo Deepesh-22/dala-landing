@@ -11,8 +11,7 @@ const COLORS = [
   new THREE.Color('#ffffff'),
 ];
 
-/** Sparse ambient field — cheap group rotation only. */
-export default function AmbientParticles({ count = 120 }) {
+export default function AmbientParticles({ count = 80 }) {
   const meshRef = useRef(null);
   const dummy = useMemo(() => new THREE.Object3D(), []);
 
@@ -25,36 +24,18 @@ export default function AmbientParticles({ count = 120 }) {
       const t = i / count;
       const incl = Math.acos(1 - 2 * t);
       const az = Math.PI * 2 * 1.618 * i;
-      const R = 3.2 + (i % 7) * 0.35;
+      const R = 3.4 + (i % 7) * 0.4;
       bases[i * 3] = Math.sin(incl) * Math.cos(az) * R;
-      bases[i * 3 + 1] = Math.cos(incl) * R * 0.55;
+      bases[i * 3 + 1] = Math.cos(incl) * R * 0.5;
       bases[i * 3 + 2] = Math.sin(incl) * Math.sin(az) * R;
-      scales[i] = 0.03 + (i % 4) * 0.012;
+      scales[i] = 0.035 + (i % 5) * 0.012;
       colorIdx[i] = i % COLORS.length;
     }
     return { bases, scales, colorIdx };
   }, [count]);
 
-  const geometry = useMemo(() => {
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute(
-      'position',
-      new THREE.Float32BufferAttribute([0, 1.1, 0, -1, -0.65, 0, 1, -0.65, 0], 3)
-    );
-    return geo;
-  }, []);
-
-  const material = useMemo(
-    () =>
-      new THREE.MeshBasicMaterial({
-        color: 0xffffff,
-        transparent: true,
-        opacity: 0.45,
-        depthWrite: false,
-        wireframe: false,
-        side: THREE.DoubleSide,
-        toneMapped: false,
-      }),
+  const tri = useMemo(
+    () => new Float32Array([0, 1.1, 0, -1, -0.65, 0, 1, -0.65, 0]),
     []
   );
 
@@ -85,17 +66,23 @@ export default function AmbientParticles({ count = 120 }) {
   }, [count, data, dummy]);
 
   useFrame(({ clock }) => {
-    const mesh = meshRef.current;
-    if (!mesh) return;
-    mesh.rotation.y = clock.elapsedTime * 0.025;
+    if (!meshRef.current) return;
+    meshRef.current.rotation.y = clock.elapsedTime * 0.02;
   });
 
   return (
-    <instancedMesh
-      ref={meshRef}
-      args={[geometry, material, count]}
-      frustumCulled={false}
-      renderOrder={-1}
-    />
+    <instancedMesh ref={meshRef} args={[undefined, undefined, count]} frustumCulled={false} renderOrder={-1}>
+      <bufferGeometry>
+        <bufferAttribute attach="attributes-position" args={[tri, 3]} />
+      </bufferGeometry>
+      <meshBasicMaterial
+        color="#ffffff"
+        transparent
+        opacity={0.5}
+        depthWrite={false}
+        side={THREE.DoubleSide}
+        toneMapped={false}
+      />
+    </instancedMesh>
   );
 }

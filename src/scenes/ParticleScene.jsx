@@ -2,20 +2,16 @@ import AmbientParticles from './AmbientParticles.jsx';
 import CameraController from './CameraController.jsx';
 import ParticleSystem from './ParticleSystem.jsx';
 
-/**
- * Phase 3 scene — brain particle field centered and sized to read clearly.
- */
 export default function ParticleScene({ reducedMotion = false }) {
   return (
     <>
       <color attach="background" args={['#000000']} />
       <CameraController />
 
-      {/* Sparse ambient field */}
-      <AmbientParticles count={120} />
+      <AmbientParticles count={80} />
 
-      {/* Brain centered in view */}
-      <group position={[0, 0.05, 0]} scale={1.35}>
+      {/* Centered, large enough to read as a brain silhouette */}
+      <group position={[0.15, 0.05, 0]} scale={1.55}>
         <ParticleSystem shapeA="brain" reducedMotion={reducedMotion} />
       </group>
     </>

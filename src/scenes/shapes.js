@@ -29,13 +29,12 @@ function fibDir(i, count) {
   };
 }
 
-/** Keep counts modest — high counts freeze the main thread */
 export function getParticleCount() {
   if (typeof window === 'undefined') return 10000;
   const w = window.innerWidth;
-  if (w < 640) return 6000;
-  if (w < 1024) return 9000;
-  return 12000;
+  if (w < 640) return 7000;
+  if (w < 1024) return 11000;
+  return 14000;
 }
 
 export function createSphere(count) {
@@ -75,10 +74,10 @@ export function createBrain(count) {
   const nFill = count - nCortex - nMedial - nCere - nStem;
   let idx = 0;
 
-  const HEMI_X = 0.48;
-  const RX = 0.68;
-  const RY = 0.66;
-  const RZ = 1.08;
+  const HEMI_X = 0.52;
+  const RX = 0.72;
+  const RY = 0.68;
+  const RZ = 1.12;
 
   for (let i = 0; i < nCortex; i++) {
     const side = i % 2 === 0 ? -1 : 1;
@@ -125,14 +124,14 @@ export function createBrain(count) {
     const g3 = noise3(lx * 28, ly * 28, lz * 28 + side);
     const sulcus1 = Math.sin(lz * 9.0 + ly * 5.0) * 0.024;
     const sulcus2 = Math.sin(ly * 18.0 - lz * 7.0 + lx * 3.0) * 0.02;
-    const fold = g1 * 0.052 + g2 * 0.034 + g3 * 0.02 + sulcus1 + sulcus2;
+    const fold = g1 * 0.055 + g2 * 0.036 + g3 * 0.022 + sulcus1 + sulcus2;
 
-    const shell = 0.9 + hash(i * 1.3) * 0.1;
+    const shell = 0.88 + hash(i * 1.3) * 0.12;
     const r = (1.0 + fold) * shell;
-    const fissureGap = 0.1;
+    const fissureGap = 0.12;
 
     pos[idx * 3] = side * (HEMI_X + fissureGap * (1.15 - lx)) + side * lx * r * rx;
-    pos[idx * 3 + 1] = ly * r * ry + 0.15;
+    pos[idx * 3 + 1] = ly * r * ry + 0.12;
     pos[idx * 3 + 2] = lz * r * rz;
     idx++;
   }

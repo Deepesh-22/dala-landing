@@ -1,8 +1,11 @@
-/**
- * Non-WebGL placeholder so the page is never a dead black void.
- * Soft multicolor glow suggests the particle brain until WebGL works.
- */
-export default function FallbackVisual() {
+import { useEffect } from 'react';
+
+/** CSS fallback when WebGL is unavailable. */
+export default function FallbackVisual({ onMount }) {
+  useEffect(() => {
+    onMount?.();
+  }, [onMount]);
+
   return (
     <div className="webgl-fallback" aria-hidden="true">
       <div className="webgl-fallback__glow webgl-fallback__glow--a" />

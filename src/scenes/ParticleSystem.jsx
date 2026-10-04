@@ -6,8 +6,10 @@ import { generateShape, getParticleCount } from './shapes.js';
 const PALETTE = [
   new THREE.Color('#ffffff'),
   new THREE.Color('#f5d76e'),
+  new THREE.Color('#e8c56a'),
   new THREE.Color('#c39bd3'),
   new THREE.Color('#9b59b6'),
+  new THREE.Color('#5dade2'),
   new THREE.Color('#3498db'),
   new THREE.Color('#1abc9c'),
   new THREE.Color('#2ecc71'),
@@ -20,8 +22,8 @@ function hash01(i) {
 }
 
 /**
- * Phase 3 particle field — visible filled triangles forming a brain.
- * Matrices set once; group rotates for idle motion (no per-frame matrix storm).
+ * Phase 3 — visible multicolor triangle particles forming a brain.
+ * Uses R3F declarative geometry/material (avoids dispose bugs with useMemo args).
  */
 export default function ParticleSystem({
   shapeA = 'brain',
@@ -32,65 +34,43 @@ export default function ParticleSystem({
 
   const count = useMemo(() => {
     const n = getParticleCount();
-    return Math.min(Math.max(n, 4000), 14000);
+    // Dense enough to read structure, low enough to stay smooth
+    return Math.min(Math.max(n, 5000), 16000);
   }, []);
 
   const dummy = useMemo(() => new THREE.Object3D(), []);
   const colorTmp = useMemo(() => new THREE.Color(), []);
 
-  const data = useMemo(() => {
+  const { positions, scales, colors } = useMemo(() => {
     const pos = generateShape(shapeA, count);
-    const scales = new Float32Array(count);
-    const colors = new Float32Array(count * 3);
+    const sc = new Float32Array(count);
+    const col = new Float32Array(count * 3);
 
     for (let i = 0; i < count; i++) {
       const seed = hash01(i);
-      // Larger fragments so structure reads on screen
-      scales[i] = 0.028 + seed * 0.032;
+      // Readable fragment size on a ~2-unit brain
+      sc[i] = 0.04 + seed * 0.05;
 
       const x = pos[i * 3];
       const y = pos[i * 3 + 1];
       const z = pos[i * 3 + 2];
       const region =
-        (Math.abs(x) * 1.2 + (y + 0.5) * 0.55 + (z + 0.5) * 0.45 + seed) * 0.55;
+        (Math.abs(x) * 1.15 + (y + 0.4) * 0.5 + (z + 0.4) * 0.4 + seed) * 0.6;
       const band = Math.floor(region * PALETTE.length) % PALETTE.length;
-      const col = PALETTE[band];
-      const dim = 0.75 + hash01(i + 99) * 0.35;
-      colors[i * 3] = Math.min(1, col.r * dim);
-      colors[i * 3 + 1] = Math.min(1, col.g * dim);
-      colors[i * 3 + 2] = Math.min(1, col.b * dim);
+      const c = PALETTE[band];
+      // Keep bright — structure must pop on black
+      const dim = 0.85 + hash01(i + 17) * 0.2;
+      col[i * 3] = Math.min(1, c.r * dim);
+      col[i * 3 + 1] = Math.min(1, c.g * dim);
+      col[i * 3 + 2] = Math.min(1, c.b * dim);
     }
 
-    return { pos, scales, colors };
+    return { positions: pos, scales: sc, colors: col };
   }, [count, shapeA]);
 
-  // Unit triangle — scaled per-instance
-  const geometry = useMemo(() => {
-    const geo = new THREE.BufferGeometry();
-    const s = 1;
-    geo.setAttribute(
-      'position',
-      new THREE.Float32BufferAttribute(
-        [0, s * 1.15, 0, -s, -s * 0.65, 0, s, -s * 0.65, 0],
-        3
-      )
-    );
-    geo.computeVertexNormals();
-    return geo;
-  }, []);
-
-  const material = useMemo(
-    () =>
-      new THREE.MeshBasicMaterial({
-        color: 0xffffff,
-        // Filled triangles read better than pure wireframe on black
-        wireframe: false,
-        transparent: true,
-        opacity: 0.88,
-        depthWrite: false,
-        side: THREE.DoubleSide,
-        toneMapped: false,
-      }),
+  // Triangle vertex positions (unit size; scaled per instance)
+  const triPositions = useMemo(
+    () => new Float32Array([0, 1.2, 0, -1.05, -0.7, 0, 1.05, -0.7, 0]),
     []
   );
 
@@ -98,9 +78,7 @@ export default function ParticleSystem({
     const mesh = meshRef.current;
     if (!mesh) return;
 
-    const { pos, scales, colors } = data;
-
-    // Ensure instanceColor buffer exists
+    // Allocate instance color buffer once
     if (!mesh.instanceColor) {
       mesh.instanceColor = new THREE.InstancedBufferAttribute(
         new Float32Array(count * 3),
@@ -109,14 +87,14 @@ export default function ParticleSystem({
     }
 
     for (let i = 0; i < count; i++) {
-      const px = pos[i * 3];
-      const py = pos[i * 3 + 1];
-      const pz = pos[i * 3 + 2];
-
-      dummy.position.set(px, py, pz);
+      dummy.position.set(
+        positions[i * 3],
+        positions[i * 3 + 1],
+        positions[i * 3 + 2]
+      );
       dummy.scale.setScalar(scales[i]);
       dummy.rotation.set(
-        hash01(i + 1) * 0.6,
+        hash01(i + 1) * 0.8,
         hash01(i + 2) * Math.PI * 2,
         hash01(i) * Math.PI * 2
       );
@@ -132,24 +110,33 @@ export default function ParticleSystem({
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
     mesh.frustumCulled = false;
     mesh.visible = true;
-  }, [count, data, dummy, colorTmp]);
+  }, [count, positions, scales, colors, dummy, colorTmp]);
 
   useFrame(({ clock }) => {
     if (reducedMotion || !groupRef.current) return;
     const t = clock.elapsedTime;
-    groupRef.current.rotation.y = t * 0.07;
-    groupRef.current.rotation.x = Math.sin(t * 0.14) * 0.05;
+    groupRef.current.rotation.y = t * 0.06;
+    groupRef.current.rotation.x = Math.sin(t * 0.13) * 0.045;
   });
 
   return (
     <group ref={groupRef}>
-      <instancedMesh
-        ref={meshRef}
-        args={[geometry, material, count]}
-        frustumCulled={false}
-        castShadow={false}
-        receiveShadow={false}
-      />
+      <instancedMesh ref={meshRef} args={[undefined, undefined, count]} frustumCulled={false}>
+        <bufferGeometry>
+          <bufferAttribute
+            attach="attributes-position"
+            args={[triPositions, 3]}
+          />
+        </bufferGeometry>
+        <meshBasicMaterial
+          color="#ffffff"
+          transparent
+          opacity={0.92}
+          depthWrite={false}
+          side={THREE.DoubleSide}
+          toneMapped={false}
+        />
+      </instancedMesh>
     </group>
   );
 }
