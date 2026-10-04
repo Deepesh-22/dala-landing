@@ -7,7 +7,7 @@ import { getParticleBudget } from '../hooks/useResponsive.js';
 const PALETTE = [
   new THREE.Color('#ffffff'),
   new THREE.Color('#f5d76e'),
-  new THREE.Color('#e8c56a'),
+  new THREE.Color('#ecd6ff'),
   new THREE.Color('#c39bd3'),
   new THREE.Color('#9b59b6'),
   new THREE.Color('#8052ff'),
@@ -57,7 +57,7 @@ export default function ParticleSystem({
     for (let i = 0; i < count; i++) {
       const seed = hash01(i);
       // Small but visible wire triangles
-      scales[i] = 0.045 + seed * 0.05;
+      scales[i] = 0.05 + seed * 0.055;
 
       const x = pos[i * 3] || 0;
       const y = pos[i * 3 + 1] || 0;
@@ -69,7 +69,7 @@ export default function ParticleSystem({
       if (!Number.isFinite(band) || band < 0) band = 0;
       const c = PALETTE[band] || PALETTE[0];
 
-      const dim = 0.75 + hash01(i + 91) * 0.35;
+      const dim = 0.8 + hash01(i + 91) * 0.25;
       colors[i * 3] = Math.min(1, c.r * dim);
       colors[i * 3 + 1] = Math.min(1, c.g * dim);
       colors[i * 3 + 2] = Math.min(1, c.b * dim);
@@ -140,7 +140,7 @@ export default function ParticleSystem({
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
     mesh.frustumCulled = false;
     mesh.visible = true;
-  }, [count, data, dummy]);
+  }, [count, data, dummy, colorTmp]);
 
   const colorTmp = useMemo(() => new THREE.Color(), []);
 
