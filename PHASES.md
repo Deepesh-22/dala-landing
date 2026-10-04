@@ -2,25 +2,27 @@
 
 ## Phase 1 — Foundation ✅
 - Vite + React + Three + R3F + GSAP + Lenis
-- Full-viewport black site
-- Fixed WebGL canvas (z-index 0)
-- HTML above canvas
-- Smooth scroll, DPR cap, reduced-motion, resize
+- Full-viewport black site, fixed WebGL canvas
+- Smooth scroll, DPR cap, reduced-motion
 
 ## Phase 2 — Navigation ✅
-- Fixed minimal nav
-- Logo left / links + purple CTA right
+- Fixed minimal nav, logo left, links + purple CTA right
 - Mobile menu button only
 
 ## Phase 3 — Particle engine ✅
 - InstancedMesh wireframe triangles
-- GPU vertex shader breath / float
-- Brain shape (dual hemispheres)
-- Shape generators: brain, sphere, bulb, scatter, abstract
-- Counts: 20k mobile → 70k desktop
-- No per-particle JS in rAF
+- Multicolor palette, instancing, group idle motion
+
+## Phase 4 — Brain form ✅
+- Dual hemispheres + central fissure
+- Cerebellum + brain stem
+- Dense surface / sparse interior / minimal aura
+- Finer triangle symbols
+- Right-half composition (left open for type)
+- Yellow/white dominant, purple/blue secondary
+- Subtle rotate + breathe + camera drift
 
 ## Next
-- Phase 4: GPU simulation / morph between shapes
 - Phase 5: mouse interaction
-- Phase 6+: scroll choreography
+- Phase 6: shape morph system
+- Phase 7+: scroll choreography

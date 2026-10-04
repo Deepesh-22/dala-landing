@@ -4,13 +4,14 @@ import * as THREE from 'three';
 import { generateShape } from './shapes.js';
 import { getParticleBudget } from '../hooks/useResponsive.js';
 
-// Dominant: yellow + white; secondary: purple/blue/cyan; accents: green/magenta
+// Yellow/white dominant · purple/blue/cyan secondary · green/magenta accents
 const PALETTE = [
   new THREE.Color('#ffffff'),
   new THREE.Color('#ffffff'),
+  new THREE.Color('#f8f1d4'),
   new THREE.Color('#f5d76e'),
   new THREE.Color('#ffb829'),
-  new THREE.Color('#f5d76e'),
+  new THREE.Color('#ecd6ff'),
   new THREE.Color('#c39bd3'),
   new THREE.Color('#9b59b6'),
   new THREE.Color('#8052ff'),
@@ -27,9 +28,8 @@ function hash01(i) {
 }
 
 /**
- * Phase 3/4 particle engine
- * Hollow triangular wireframes forming a brain silhouette.
- * Matrices set once; parent group rotates + breathes (no per-particle JS loop).
+ * Phase 4 — brain of tiny hollow triangular symbols.
+ * Matrices set once; parent group rotates + breathes.
  */
 export default function ParticleSystem({
   shapeA = 'brain',
@@ -54,24 +54,33 @@ export default function ParticleSystem({
     const scales = new Float32Array(count);
     const colors = new Float32Array(count * 3);
 
+    // Aura starts roughly after 98% of particles (matches shapes.js budget)
+    const auraStart = Math.floor(count * 0.98);
+
     for (let i = 0; i < count; i++) {
       const seed = hash01(i);
-      // Tiny hollow triangles — still readable at distance
-      scales[i] = 0.04 + seed * 0.05;
+      // Finer triangles — readable symbols, not large scribbles
+      scales[i] = 0.018 + seed * 0.022;
 
       const x = pos[i * 3] || 0;
       const y = pos[i * 3 + 1] || 0;
       const z = pos[i * 3 + 2] || 0;
 
-      // Color regions: frontal yellow/white, lateral purple/blue, accents
+      // Region-based color: frontal yellow/white, lateral purple/blue
+      const frontal = Math.max(0, z + 0.3);
+      const lateral = Math.abs(x);
       const region =
-        (Math.abs(x) * 1.1 + (y + 0.5) * 0.5 + (z + 0.6) * 0.55 + seed * 0.8) * 0.5;
+        (frontal * 0.45 + lateral * 0.35 + (y + 0.4) * 0.2 + seed * 0.5) * 0.55;
       let band = Math.floor(region * PALETTE.length) % PALETTE.length;
       if (!Number.isFinite(band) || band < 0) band = 0;
       const c = PALETTE[band] || PALETTE[0];
 
-      // Uneven brightness — hollow/dark gaps between dense clusters
-      const dim = 0.65 + hash01(i + 91) * 0.4;
+      // Aura particles: dimmer so silhouette edge stays sharp
+      const isAura = i >= auraStart;
+      const dim = isAura
+        ? 0.25 + seed * 0.2
+        : 0.7 + hash01(i + 91) * 0.35;
+
       colors[i * 3] = Math.min(1, c.r * dim);
       colors[i * 3 + 1] = Math.min(1, c.g * dim);
       colors[i * 3 + 2] = Math.min(1, c.b * dim);
@@ -98,9 +107,9 @@ export default function ParticleSystem({
     () =>
       new THREE.MeshBasicMaterial({
         color: 0xffffff,
-        wireframe: true, // hollow triangular outlines
+        wireframe: true,
         transparent: true,
-        opacity: 0.9,
+        opacity: 0.88,
         depthWrite: false,
         side: THREE.DoubleSide,
         toneMapped: false,
@@ -120,9 +129,9 @@ export default function ParticleSystem({
         pos[i * 3 + 1] ?? 0,
         pos[i * 3 + 2] ?? 0
       );
-      dummy.scale.setScalar(scales[i] ?? 0.05);
+      dummy.scale.setScalar(scales[i] ?? 0.025);
       dummy.rotation.set(
-        hash01(i + 1) * 1.2,
+        hash01(i + 1) * 1.1,
         hash01(i + 2) * Math.PI * 2,
         hash01(i + 3) * Math.PI * 2
       );
@@ -148,14 +157,13 @@ export default function ParticleSystem({
     if (!groupRef.current) return;
     const t = clock.elapsedTime;
     if (reducedMotion) {
-      groupRef.current.rotation.y = 0.15;
+      groupRef.current.rotation.y = 0.2;
       groupRef.current.scale.setScalar(1);
       return;
     }
-    // Subtle rotate + breathe
-    groupRef.current.rotation.y = t * 0.045;
-    groupRef.current.rotation.x = Math.sin(t * 0.11) * 0.035;
-    const breath = 1 + Math.sin(t * 0.55) * 0.025;
+    groupRef.current.rotation.y = t * 0.04;
+    groupRef.current.rotation.x = Math.sin(t * 0.1) * 0.03;
+    const breath = 1 + Math.sin(t * 0.5) * 0.02;
     groupRef.current.scale.setScalar(breath);
   });
 
