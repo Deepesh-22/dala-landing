@@ -7,7 +7,7 @@ import { getParticleBudget } from '../hooks/useResponsive.js';
 const PALETTE = [
   new THREE.Color('#ffffff'),
   new THREE.Color('#f5d76e'),
-  new THREE.Color('#ecd6ff'),
+  new THREE.Color('#e8c56a'),
   new THREE.Color('#c39bd3'),
   new THREE.Color('#9b59b6'),
   new THREE.Color('#8052ff'),
@@ -25,11 +25,11 @@ function hash01(i) {
 }
 
 /**
- * Phase 3 particle engine:
+ * Phase 3 particle engine
  * - InstancedMesh (one draw call)
  * - Hollow triangular wireframes (wireframe: true)
  * - Multicolor density field
- * - Idle rotation on the group (GPU draws; JS only rotates parent)
+ * - Idle rotation on parent group only (no per-particle JS physics loop)
  */
 export default function ParticleSystem({
   shapeA = 'brain',
@@ -57,7 +57,7 @@ export default function ParticleSystem({
     for (let i = 0; i < count; i++) {
       const seed = hash01(i);
       // Small but visible wire triangles
-      scales[i] = 0.035 + seed * 0.04;
+      scales[i] = 0.045 + seed * 0.05;
 
       const x = pos[i * 3] || 0;
       const y = pos[i * 3 + 1] || 0;
@@ -69,7 +69,7 @@ export default function ParticleSystem({
       if (!Number.isFinite(band) || band < 0) band = 0;
       const c = PALETTE[band] || PALETTE[0];
 
-      const dim = 0.7 + hash01(i + 91) * 0.35;
+      const dim = 0.75 + hash01(i + 91) * 0.35;
       colors[i * 3] = Math.min(1, c.r * dim);
       colors[i * 3 + 1] = Math.min(1, c.g * dim);
       colors[i * 3 + 2] = Math.min(1, c.b * dim);
@@ -77,6 +77,34 @@ export default function ParticleSystem({
 
     return { pos, scales, colors };
   }, [count, shapeA]);
+
+  const geometry = useMemo(() => {
+    const geo = new THREE.BufferGeometry();
+    const s = 1;
+    geo.setAttribute(
+      'position',
+      new THREE.Float32BufferAttribute(
+        [0, s * 1.15, 0, -s, -s * 0.65, 0, s, -s * 0.65, 0],
+        3
+      )
+    );
+    geo.setIndex([0, 1, 2]);
+    return geo;
+  }, []);
+
+  const material = useMemo(
+    () =>
+      new THREE.MeshBasicMaterial({
+        color: 0xffffff,
+        wireframe: true, // hollow triangular outlines
+        transparent: true,
+        opacity: 0.9,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+        toneMapped: false,
+      }),
+    []
+  );
 
   useLayoutEffect(() => {
     const mesh = meshRef.current;
@@ -90,7 +118,7 @@ export default function ParticleSystem({
       const pz = pos[i * 3 + 2] ?? 0;
 
       dummy.position.set(px, py, pz);
-      dummy.scale.setScalar(scales[i] ?? 0.04);
+      dummy.scale.setScalar(scales[i] ?? 0.05);
       dummy.rotation.set(
         hash01(i + 1) * 0.9,
         hash01(i + 2) * Math.PI * 2,
