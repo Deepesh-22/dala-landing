@@ -12,13 +12,12 @@
 
 html {
   background: var(--bg);
-  scroll-behavior: auto;
 }
 
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
 }
@@ -28,7 +27,7 @@ body {
   background: #000;
 }
 
-/* Full-screen canvas behind content */
+/* Phase 1: full-screen black canvas */
 .dala-canvas {
   position: fixed;
   inset: 0;
@@ -45,50 +44,46 @@ body {
   background: transparent;
 }
 
+/* Phase 6: editorial sections */
 .dala-section {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  padding: 8vw 6vw;
-  max-width: 720px;
-}
-
-.dala-section h1,
-.dala-section h2 {
-  font-size: clamp(2.2rem, 5vw, 4rem);
-  font-weight: 600;
-  line-height: 1.15;
-  letter-spacing: -0.02em;
-  margin-bottom: 1.25rem;
-}
-
-.dala-section p {
-  font-size: clamp(1rem, 1.6vw, 1.25rem);
-  line-height: 1.65;
-  color: var(--muted);
-  max-width: 36em;
+  padding: 10vh 6vw;
+  max-width: 640px;
 }
 
 .dala-section .label {
-  font-size: 0.75rem;
-  letter-spacing: 0.12em;
+  font-size: 0.7rem;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.4);
-  margin-bottom: 1rem;
+  color: rgba(255, 255, 255, 0.38);
+  margin-bottom: 1.1rem;
+}
+
+.dala-section h1 {
+  font-size: clamp(2.4rem, 5.5vw, 4.2rem);
+  font-weight: 600;
+  line-height: 1.12;
+  letter-spacing: -0.03em;
+  margin-bottom: 1.35rem;
+}
+
+.dala-section p {
+  font-size: clamp(1.05rem, 1.7vw, 1.3rem);
+  line-height: 1.7;
+  color: var(--muted);
+  max-width: 34em;
 }
 
 #hero {
-  max-width: 560px;
-}
-
-#cta {
-  align-items: flex-start;
+  max-width: 520px;
 }
 
 .cta-btn {
-  margin-top: 2rem;
-  padding: 0.9rem 1.8rem;
+  margin-top: 2.25rem;
+  padding: 0.95rem 1.9rem;
   background: #fff;
   color: #000;
   border: none;
@@ -100,17 +95,17 @@ body {
 }
 
 .cta-btn:hover {
-  transform: scale(1.03);
-  opacity: 0.9;
+  transform: scale(1.04);
+  opacity: 0.92;
 }
 
 .dala-footer {
-  padding: 4rem 6vw 6rem;
-  font-size: 0.85rem;
-  color: rgba(255, 255, 255, 0.35);
+  padding: 5rem 6vw 7rem;
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.3);
+  letter-spacing: 0.04em;
 }
 
-/* Loading */
 .dala-loader {
   position: fixed;
   inset: 0;
@@ -119,7 +114,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: opacity 0.6s ease, visibility 0.6s ease;
+  transition: opacity 0.7s ease, visibility 0.7s ease;
 }
 
 .dala-loader.done {
@@ -129,8 +124,15 @@ body {
 }
 
 .dala-loader span {
-  font-size: 0.8rem;
-  letter-spacing: 0.2em;
+  font-size: 0.75rem;
+  letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(255, 255, 255, 0.45);
+}
+
+@media (max-width: 768px) {
+  .dala-section {
+    padding: 12vh 5vw;
+    max-width: 100%;
+  }
 }
