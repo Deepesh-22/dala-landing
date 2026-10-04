@@ -3,9 +3,6 @@ import { Suspense } from 'react';
 import ParticleScene from '../../scenes/ParticleScene.jsx';
 import { getCappedDpr } from '../../hooks/useResponsive.js';
 
-/**
- * Fixed full-viewport WebGL layer.
- */
 export default function WebGLCanvas({ reducedMotion = false }) {
   const dpr = reducedMotion ? 1 : getCappedDpr();
 
@@ -17,11 +14,13 @@ export default function WebGLCanvas({ reducedMotion = false }) {
           antialias: true,
           alpha: false,
           powerPreference: 'high-performance',
+          failIfMajorPerformanceCaveat: false,
         }}
-        camera={{ fov: 38, near: 0.1, far: 80, position: [0.2, 0.15, 3.6] }}
+        camera={{ fov: 36, near: 0.1, far: 100, position: [0.2, 0.4, 3.2] }}
         style={{ background: '#000000' }}
         onCreated={({ gl }) => {
           gl.setClearColor('#000000', 1);
+          gl.setPixelRatio(dpr);
         }}
       >
         <Suspense fallback={null}>
