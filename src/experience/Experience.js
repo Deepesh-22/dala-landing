@@ -1,8 +1,8 @@
 /**
  * Phase gate via BUILD_PHASE:
  * 1 = black canvas
- * 2 = + triangle particles + colors  ← current
- * 3 = + brain shape
+ * 2 = + triangle particles + colors
+ * 3 = + brain shape  ← current
  * 4 = + morph
  * 5 = + ambient + all shapes
  * 6 = + full scroll page
@@ -14,7 +14,7 @@ import Renderer from './Renderer.js';
 import Particles from './particles/Particles.js';
 import { isWebGLAvailable } from './utils/device.js';
 
-export const BUILD_PHASE = 2;
+export const BUILD_PHASE = 3;
 
 export default class Experience {
   constructor({ canvas, onProgress } = {}) {
@@ -55,19 +55,33 @@ export default class Experience {
     this.timeline = null;
     this.smoothScroll = null;
 
-    // ── Phase 2: triangle particles ──────────────────────────
+    // ── Phase 2+: triangle particles ──────────────────────────
     if (BUILD_PHASE >= 2) {
       this.particles = new Particles({ scene: this.scene });
       if (this.particles.mesh) {
-        this.particles.mesh.position.set(0.3, 0.05, 0);
+        // Center brain for clear hero silhouette
+        this.particles.mesh.position.set(0.15, 0.05, 0);
+        this.particles.mesh.scale.setScalar(BUILD_PHASE >= 3 ? 1.15 : 1);
       }
-      // Phase 2: hold scatter cloud, gentle spin (no morph yet)
+
       if (this.particles.morph) {
-        this.particles.morph.setPair('scatter', 'scatter');
-        this.particles.morph.setProgress(0);
-        this.particles.morph.params.springStrength = 5.5;
-        this.particles.morph.params.noiseStrength = 0.04;
-        this.particles.morph.params.scatter = 0;
+        if (BUILD_PHASE >= 3) {
+          // Phase 3: hold solid brain silhouette
+          this.particles.morph.setPair('brain', 'brain');
+          this.particles.morph.setProgress(0);
+          this.particles.morph.current.set(this.particles.shapes.brain);
+          this.particles.morph.params.springStrength = 6.0;
+          this.particles.morph.params.noiseStrength = 0.025;
+          this.particles.morph.params.scatter = 0;
+          this.particles.morph.params.turbulence = 0.04;
+        } else {
+          // Phase 2: scatter cloud
+          this.particles.morph.setPair('scatter', 'scatter');
+          this.particles.morph.setProgress(0);
+          this.particles.morph.params.springStrength = 5.5;
+          this.particles.morph.params.noiseStrength = 0.04;
+          this.particles.morph.params.scatter = 0;
+        }
       }
       this.particles._timelineRotY = 0;
       this.onProgress(0.7);
@@ -119,9 +133,9 @@ export default class Experience {
     const delta = Math.min(elapsed - this._prevTime, 0.05);
     this._prevTime = elapsed;
 
-    // Phase 2: slow continuous Y rotation for preview
-    if (BUILD_PHASE === 2 && this.particles) {
-      this.particles._timelineRotY = elapsed * 0.12;
+    // Slow continuous Y rotation for hero preview
+    if (BUILD_PHASE >= 2 && BUILD_PHASE <= 3 && this.particles) {
+      this.particles._timelineRotY = elapsed * (BUILD_PHASE === 3 ? 0.08 : 0.12);
     }
 
     this.timeline?.update?.();
