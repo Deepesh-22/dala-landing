@@ -1,10 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import Experience, { BUILD_PHASE } from './experience/Experience.js';
 
-/**
- * Phase 1: black canvas + loader only.
- * Sections appear from Phase 6; kept minimal so Phase 1 is easy to verify.
- */
 export default function App() {
   const canvasRef = useRef(null);
   const expRef = useRef(null);
@@ -27,6 +23,23 @@ export default function App() {
     };
   }, []);
 
+  const phaseCopy = {
+    1: {
+      title: 'Black canvas only',
+      body: 'Pure black. No purple. Canvas fills the screen. Loader fades out.',
+    },
+    2: {
+      title: 'Triangle particles',
+      body: 'Filled multicolored triangles (Dala palette) slowly rotating. Sharp edges on pure black.',
+    },
+    3: {
+      title: 'Brain shape',
+      body: 'Particles form a clear brain silhouette.',
+    },
+  };
+
+  const copy = phaseCopy[BUILD_PHASE] || phaseCopy[2];
+
   return (
     <>
       <div className={`dala-loader ${ready ? 'done' : ''}`}>
@@ -36,25 +49,11 @@ export default function App() {
       <canvas ref={canvasRef} className="dala-canvas" />
 
       <div className="dala-page">
-        {BUILD_PHASE >= 1 && (
-          <section id="hero" className="dala-section">
-            <div className="label">Phase {BUILD_PHASE} test</div>
-            <h1>
-              {BUILD_PHASE === 1
-                ? 'Black canvas only'
-                : BUILD_PHASE === 2
-                  ? 'Triangle particles'
-                  : BUILD_PHASE === 3
-                    ? 'Brain shape'
-                    : 'Dala landing'}
-            </h1>
-            <p>
-              {BUILD_PHASE === 1
-                ? 'You should see pure black. No purple. Canvas fills the screen. Loader fades out.'
-                : 'Scroll to test morphs when later phases are enabled.'}
-            </p>
-          </section>
-        )}
+        <section id="hero" className="dala-section">
+          <div className="label">Phase {BUILD_PHASE} preview</div>
+          <h1>{copy.title}</h1>
+          <p>{copy.body}</p>
+        </section>
 
         {BUILD_PHASE >= 6 && (
           <>

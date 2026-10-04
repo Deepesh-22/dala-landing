@@ -3,7 +3,7 @@ import { getParticleCount } from '../utils/device.js';
 import { generateAllShapes } from './ShapeGenerator.js';
 import MorphSystem from './MorphSystem.js';
 
-/** Dala 8-hue palette — exact visual reference */
+/** Dala 8-hue palette */
 const DALA_COLORS = [
   new THREE.Color(0xf5d76e), // yellow
   new THREE.Color(0xc39bd3), // light purple
@@ -27,6 +27,10 @@ export default class Particles {
     this.shapes = generateAllShapes(this.count);
     this.morph = new MorphSystem({ count: this.count, shapes: this.shapes });
 
+    // Default to scatter for Phase 2 preview (visible cloud of triangles)
+    this.morph.setPair('scatter', 'scatter');
+    this.morph.current.set(this.shapes.scatter);
+
     this._timelineRotY = 0;
     this._timelineRotX = 0;
     this._timelineOpacity = 1;
@@ -36,8 +40,8 @@ export default class Particles {
   }
 
   _createMesh() {
-    // Phase 2: filled triangle — larger so particles read clearly on black
-    const s = 0.016;
+    // Filled triangle — readable size on black
+    const s = 0.017;
     const tri = new THREE.BufferGeometry();
     tri.setAttribute(
       'position',
@@ -63,7 +67,6 @@ export default class Particles {
     this.mesh.frustumCulled = false;
     this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
 
-    // Stable per-particle color from palette
     const colors = new Float32Array(this.count * 3);
     for (let i = 0; i < this.count; i++) {
       const col = DALA_COLORS[Math.floor(hash01(i) * DALA_COLORS.length)];
@@ -76,7 +79,7 @@ export default class Particles {
     this._dummy = new THREE.Object3D();
     this._scales = new Float32Array(this.count);
     for (let i = 0; i < this.count; i++) {
-      this._scales[i] = 0.75 + hash01(i + 99) * 0.55;
+      this._scales[i] = 0.7 + hash01(i + 99) * 0.6;
     }
 
     const pos = this.morph.current;
@@ -120,7 +123,7 @@ export default class Particles {
 
       this._dummy.position.set(x, y, z);
       this._dummy.scale.setScalar(this._scales[i]);
-      this._dummy.rotation.z = elapsed * 0.12 + i * 0.37;
+      this._dummy.rotation.z = elapsed * 0.15 + i * 0.37;
       this._dummy.updateMatrix();
       this.mesh.setMatrixAt(i, this._dummy.matrix);
     }

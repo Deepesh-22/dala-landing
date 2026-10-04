@@ -1,16 +1,17 @@
 /**
- * Phase gate: set BUILD_PHASE to unlock features.
- * 1 = black canvas only
- * 2 = + triangle particles + Dala colors
- * 3 = + brain shape (hero)
- * 4 = + morph system
- * 5 = + ambient + full shape set
- * 6 = + scroll timeline + all sections
+ * Phase gate via BUILD_PHASE:
+ * 1 = black canvas
+ * 2 = + triangle particles + colors  ← current
+ * 3 = + brain shape
+ * 4 = + morph
+ * 5 = + ambient + all shapes
+ * 6 = + full scroll page
  */
 import * as THREE from 'three';
 import Scene from './Scene.js';
 import Camera from './Camera.js';
 import Renderer from './Renderer.js';
+import Particles from './particles/Particles.js';
 import { isWebGLAvailable } from './utils/device.js';
 
 export const BUILD_PHASE = 2;
@@ -47,24 +48,32 @@ export default class Experience {
     this.scene = new Scene();
     this.camera = new Camera({ sizes: this.sizes });
     this.renderer = new Renderer({ canvas: this.canvas, sizes: this.sizes });
-    this.onProgress(0.35);
+    this.onProgress(0.4);
 
     this.particles = null;
     this.ambient = null;
     this.timeline = null;
     this.smoothScroll = null;
 
+    // ── Phase 2: triangle particles ──────────────────────────
     if (BUILD_PHASE >= 2) {
-      this._initPhase2();
-    }
-    if (BUILD_PHASE >= 5) {
-      this._initPhase5();
-    }
-    if (BUILD_PHASE >= 6) {
-      this._initPhase6();
+      this.particles = new Particles({ scene: this.scene });
+      if (this.particles.mesh) {
+        this.particles.mesh.position.set(0.3, 0.05, 0);
+      }
+      // Phase 2: hold scatter cloud, gentle spin (no morph yet)
+      if (this.particles.morph) {
+        this.particles.morph.setPair('scatter', 'scatter');
+        this.particles.morph.setProgress(0);
+        this.particles.morph.params.springStrength = 5.5;
+        this.particles.morph.params.noiseStrength = 0.04;
+        this.particles.morph.params.scatter = 0;
+      }
+      this.particles._timelineRotY = 0;
+      this.onProgress(0.7);
     }
 
-    this.onProgress(0.85);
+    this.onProgress(0.9);
 
     this.onResize = this.onResize.bind(this);
     this.onVisibility = this.onVisibility.bind(this);
@@ -78,20 +87,6 @@ export default class Experience {
     console.log(`[Dala] BUILD_PHASE = ${BUILD_PHASE}`);
   }
 
-  _initPhase2() {
-    // Dynamic import avoided — static for Vite tree stability
-    // eslint-disable-next-line global-require
-    const Particles = requirePhase2();
-    this.particles = new Particles({ scene: this.scene });
-    if (this.particles.mesh) {
-      this.particles.mesh.position.set(0.35, 0.05, 0);
-    }
-    this.onProgress(0.65);
-  }
-
-  _initPhase5() {}
-  _initPhase6() {}
-
   onResize() {
     clearTimeout(this._resizeTimer);
     this._resizeTimer = setTimeout(() => {
@@ -99,7 +94,6 @@ export default class Experience {
       this.sizes.height = window.innerHeight;
       this.camera.resize();
       this.renderer.resize();
-      this.smoothScroll?.resize?.();
     }, 100);
   }
 
@@ -124,6 +118,11 @@ export default class Experience {
     const elapsed = this.clock.getElapsedTime();
     const delta = Math.min(elapsed - this._prevTime, 0.05);
     this._prevTime = elapsed;
+
+    // Phase 2: slow continuous Y rotation for preview
+    if (BUILD_PHASE === 2 && this.particles) {
+      this.particles._timelineRotY = elapsed * 0.12;
+    }
 
     this.timeline?.update?.();
     this.camera.update(delta);
@@ -154,9 +153,4 @@ export default class Experience {
     this.particles?.dispose?.();
     this.renderer?.dispose?.();
   }
-}
-
-function requirePhase2() {
-  // Inline require pattern for phase gate — real import:
-  return null;
 }
