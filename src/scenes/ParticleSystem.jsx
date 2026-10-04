@@ -7,21 +7,35 @@ import {
 } from './particleShaders.js';
 import { generateShape, getParticleCount } from './shapes.js';
 
-/** Reference palette — less pure white so field stays colorful */
-const PALETTE = [
-  new THREE.Color('#f0ece6'),
+/** Outer rim golds → mid magentas/purples → cool core */
+const RIM = [
   new THREE.Color('#f5d76e'),
-  new THREE.Color('#e8c4ff'),
+  new THREE.Color('#f0c75e'),
+  new THREE.Color('#e8b84a'),
+  new THREE.Color('#ffeaa7'),
+];
+const MID = [
+  new THREE.Color('#e84393'),
+  new THREE.Color('#c39bd3'),
   new THREE.Color('#9b59b6'),
+  new THREE.Color('#a55eea'),
+  new THREE.Color('#fd79a8'),
+];
+const CORE = [
+  new THREE.Color('#6c5ce7'),
   new THREE.Color('#5dade2'),
   new THREE.Color('#1abc9c'),
-  new THREE.Color('#58d68d'),
-  new THREE.Color('#e84393'),
+  new THREE.Color('#74b9ff'),
+  new THREE.Color('#a29bfe'),
 ];
 
 function hash01(i) {
   const x = Math.sin(i * 12.9898 + 78.233) * 43758.5453;
   return x - Math.floor(x);
+}
+
+function pick(arr, t) {
+  return arr[Math.floor(t * arr.length) % arr.length];
 }
 
 export default function ParticleSystem({
@@ -58,13 +72,12 @@ export default function ParticleSystem({
       transparent: true,
       depthWrite: false,
       depthTest: true,
-      // Normal blending keeps colors readable (additive was bleaching to white)
       blending: THREE.NormalBlending,
       wireframe: true,
       uniforms: {
         uTime: { value: 0 },
         uMorph: { value: 0 },
-        uFloatAmp: { value: reducedMotion ? 0 : 0.022 },
+        uFloatAmp: { value: reducedMotion ? 0 : 0.018 },
       },
     });
   }, [reducedMotion]);
@@ -85,23 +98,40 @@ export default function ParticleSystem({
     aPosA.set(posA);
     aPosB.set(posB);
 
+    // Approximate radial extent for rim/core mapping
+    let maxR = 0.001;
+    for (let i = 0; i < count; i++) {
+      const x = posA[i * 3];
+      const y = posA[i * 3 + 1];
+      const z = posA[i * 3 + 2];
+      maxR = Math.max(maxR, Math.sqrt(x * x + y * y + z * z));
+    }
+
     for (let i = 0; i < count; i++) {
       const seed = hash01(i);
       aSeed[i] = seed;
       aOffset[i] = hash01(i + 17) * Math.PI * 2;
 
-      // Smaller triangles — readable outlines, less solid fill
-      aScale[i] = 0.0045 + seed * 0.007;
+      // Reference: small but visible hollow triangles
+      aScale[i] = 0.0055 + seed * 0.008;
 
-      // Color by spatial region so hemispheres / lobes vary
       const x = posA[i * 3];
       const y = posA[i * 3 + 1];
       const z = posA[i * 3 + 2];
-      const region =
-        (Math.abs(x) * 1.4 + (y + 0.5) * 0.6 + (z + 0.5) * 0.4 + seed) * 0.55;
-      const band = Math.floor(region * PALETTE.length) % PALETTE.length;
-      const col = PALETTE[band].clone();
-      const dim = 0.55 + hash01(i + 99) * 0.45;
+      const r = Math.sqrt(x * x + y * y + z * z) / maxR;
+
+      // Rim = gold, mid = magenta/purple, core = cool blue/violet
+      let col;
+      if (r > 0.72) {
+        col = pick(RIM, seed).clone();
+      } else if (r > 0.4) {
+        col = pick(MID, seed).clone();
+      } else {
+        col = pick(CORE, seed).clone();
+      }
+
+      // Slight dimming variance
+      const dim = 0.65 + hash01(i + 99) * 0.35;
       col.multiplyScalar(dim);
 
       aColor[i * 3] = col.r;
