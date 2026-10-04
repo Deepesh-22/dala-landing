@@ -1,14 +1,17 @@
 import { useThree } from '@react-three/fiber';
 import { useEffect } from 'react';
 
-/** Side view matching medical brain profile. */
+/**
+ * Elevated front-oblique — both hemispheres + longitudinal fissure readable.
+ */
 export default function CameraController() {
   const { camera } = useThree();
 
   useEffect(() => {
-    camera.position.set(0.2, 0.15, 3.2);
-    camera.lookAt(0.1, 0.0, 0);
-    camera.fov = 35;
+    // Slightly above and in front so frontal poles + fissure are clear
+    camera.position.set(0.15, 0.55, 2.9);
+    camera.lookAt(0, 0.05, 0.05);
+    camera.fov = 34;
     camera.updateProjectionMatrix();
   }, [camera]);
 
