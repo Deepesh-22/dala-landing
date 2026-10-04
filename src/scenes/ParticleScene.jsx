@@ -2,10 +2,6 @@ import { useState } from 'react';
 import CameraController from './CameraController.jsx';
 import ParticleSystem from './ParticleSystem.jsx';
 
-/**
- * Phase 3: core particle field (brain default).
- * Scroll morphs wired in later phases.
- */
 export default function ParticleScene({ reducedMotion = false }) {
   const [morph] = useState({
     shapeA: 'brain',
@@ -16,9 +12,12 @@ export default function ParticleScene({ reducedMotion = false }) {
   return (
     <>
       <color attach="background" args={['#000000']} />
-      <ambientLight intensity={0.4} />
       <CameraController />
-      <group position={[0.1, 0.05, 0]} scale={1.15}>
+      <group
+        position={[0.5, -0.05, 0]}
+        scale={1.05}
+        rotation={[0.1, -0.4, 0.02]}
+      >
         <ParticleSystem
           shapeA={morph.shapeA}
           shapeB={morph.shapeB}
