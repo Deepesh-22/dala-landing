@@ -1,13 +1,8 @@
 import { useFrame } from '@react-three/fiber';
-import { useEffect, useMemo, useRef } from 'react';
+import { useLayoutEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
-import {
-  particleFragmentShader,
-  particleVertexShader,
-} from './particleShaders.js';
 import { generateShape, getParticleCount } from './shapes.js';
 
-/** Previous multicolor palette (white / yellow / purple / blue / cyan / green / magenta) */
 const PALETTE = [
   new THREE.Color('#ffffff'),
   new THREE.Color('#f5d76e'),
@@ -24,6 +19,10 @@ function hash01(i) {
   return x - Math.floor(x);
 }
 
+/**
+ * Reliable particle engine — MeshBasicMaterial + instance matrices.
+ * Avoids custom-shader compile failures that caused a black canvas.
+ */
 export default function ParticleSystem({
   shapeA = 'brain',
   shapeB = 'brain',
@@ -31,8 +30,40 @@ export default function ParticleSystem({
   reducedMotion = false,
 }) {
   const meshRef = useRef(null);
-  const materialRef = useRef(null);
-  const count = useMemo(() => getParticleCount(), []);
+  const count = useMemo(() => Math.min(getParticleCount(), 60000), []);
+  const dummy = useMemo(() => new THREE.Object3D(), []);
+  const colorTmp = useMemo(() => new THREE.Color(), []);
+
+  // Precompute shape + per-particle data once
+  const data = useMemo(() => {
+    const posA = generateShape(shapeA, count);
+    const posB = generateShape(shapeB, count);
+    const seeds = new Float32Array(count);
+    const scales = new Float32Array(count);
+    const offsets = new Float32Array(count);
+    const colors = new Float32Array(count * 3);
+
+    for (let i = 0; i < count; i++) {
+      const seed = hash01(i);
+      seeds[i] = seed;
+      offsets[i] = hash01(i + 17) * Math.PI * 2;
+      scales[i] = 0.012 + seed * 0.014; // larger so triangles are visible
+
+      const x = posA[i * 3];
+      const y = posA[i * 3 + 1];
+      const z = posA[i * 3 + 2];
+      const region =
+        (Math.abs(x) * 1.2 + (y + 0.5) * 0.55 + (z + 0.5) * 0.45 + seed) * 0.55;
+      const band = Math.floor(region * PALETTE.length) % PALETTE.length;
+      const col = PALETTE[band];
+      const dim = 0.6 + hash01(i + 99) * 0.4;
+      colors[i * 3] = col.r * dim;
+      colors[i * 3 + 1] = col.g * dim;
+      colors[i * 3 + 2] = col.b * dim;
+    }
+
+    return { posA, posB, seeds, scales, offsets, colors };
+  }, [count, shapeA, shapeB]);
 
   const geometry = useMemo(() => {
     const geo = new THREE.BufferGeometry();
@@ -41,9 +72,9 @@ export default function ParticleSystem({
       'position',
       new THREE.BufferAttribute(
         new Float32Array([
-          0.0, s * 1.15, 0.0,
-          -s, -s * 0.65, 0.0,
-          s, -s * 0.65, 0.0,
+          0.0, s * 1.2, 0.0,
+          -s, -s * 0.7, 0.0,
+          s, -s * 0.7, 0.0,
         ]),
         3
       )
@@ -51,99 +82,83 @@ export default function ParticleSystem({
     return geo;
   }, []);
 
-  const material = useMemo(() => {
-    return new THREE.ShaderMaterial({
-      vertexShader: particleVertexShader,
-      fragmentShader: particleFragmentShader,
-      transparent: true,
-      depthWrite: false,
-      depthTest: true,
-      blending: THREE.NormalBlending,
-      wireframe: true,
-      uniforms: {
-        uTime: { value: 0 },
-        uMorph: { value: 0 },
-        uFloatAmp: { value: reducedMotion ? 0 : 0.018 },
-      },
-    });
-  }, [reducedMotion]);
+  const material = useMemo(
+    () =>
+      new THREE.MeshBasicMaterial({
+        color: 0xffffff,
+        wireframe: true,
+        transparent: true,
+        opacity: 0.85,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      }),
+    []
+  );
 
-  materialRef.current = material;
-
-  const { attrs, dummy } = useMemo(() => {
-    const posA = generateShape(shapeA, count);
-    const posB = generateShape(shapeB, count);
-
-    const aPosA = new Float32Array(count * 3);
-    const aPosB = new Float32Array(count * 3);
-    const aSeed = new Float32Array(count);
-    const aScale = new Float32Array(count);
-    const aColor = new Float32Array(count * 3);
-    const aOffset = new Float32Array(count);
-
-    aPosA.set(posA);
-    aPosB.set(posB);
-
-    for (let i = 0; i < count; i++) {
-      const seed = hash01(i);
-      aSeed[i] = seed;
-      aOffset[i] = hash01(i + 17) * Math.PI * 2;
-
-      aScale[i] = 0.005 + seed * 0.0075;
-
-      // Spatial color regions (not radial gold-rim) — previous look
-      const x = posA[i * 3];
-      const y = posA[i * 3 + 1];
-      const z = posA[i * 3 + 2];
-      const region =
-        (Math.abs(x) * 1.2 + (y + 0.5) * 0.55 + (z + 0.5) * 0.45 + seed) * 0.55;
-      const band = Math.floor(region * PALETTE.length) % PALETTE.length;
-      const col = PALETTE[band].clone();
-      const dim = 0.55 + hash01(i + 99) * 0.45;
-      col.multiplyScalar(dim);
-
-      aColor[i * 3] = col.r;
-      aColor[i * 3 + 1] = col.g;
-      aColor[i * 3 + 2] = col.b;
-    }
-
-    return {
-      attrs: { aPosA, aPosB, aSeed, aScale, aColor, aOffset },
-      dummy: new THREE.Object3D(),
-    };
-  }, [count, shapeA, shapeB]);
-
-  useEffect(() => {
+  // Init instance matrices + colors
+  useLayoutEffect(() => {
     const mesh = meshRef.current;
     if (!mesh) return;
 
-    const geo = mesh.geometry;
-    geo.setAttribute('aPosA', new THREE.InstancedBufferAttribute(attrs.aPosA, 3));
-    geo.setAttribute('aPosB', new THREE.InstancedBufferAttribute(attrs.aPosB, 3));
-    geo.setAttribute('aSeed', new THREE.InstancedBufferAttribute(attrs.aSeed, 1));
-    geo.setAttribute('aScale', new THREE.InstancedBufferAttribute(attrs.aScale, 1));
-    geo.setAttribute('aColor', new THREE.InstancedBufferAttribute(attrs.aColor, 3));
-    geo.setAttribute(
-      'aOffset',
-      new THREE.InstancedBufferAttribute(attrs.aOffset, 1)
-    );
+    const { posA, scales, colors } = data;
+    const m = Math.min(morphProgress, 1);
 
     for (let i = 0; i < count; i++) {
-      dummy.position.set(0, 0, 0);
-      dummy.rotation.set(0, 0, 0);
-      dummy.scale.set(1, 1, 1);
+      const x = posA[i * 3];
+      const y = posA[i * 3 + 1];
+      const z = posA[i * 3 + 2];
+      dummy.position.set(x, y, z);
+      dummy.scale.setScalar(scales[i]);
+      dummy.rotation.set(0, 0, hash01(i + 3) * Math.PI * 2);
+      dummy.updateMatrix();
+      mesh.setMatrixAt(i, dummy.matrix);
+
+      colorTmp.setRGB(colors[i * 3], colors[i * 3 + 1], colors[i * 3 + 2]);
+      mesh.setColorAt(i, colorTmp);
+    }
+    mesh.instanceMatrix.needsUpdate = true;
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    mesh.frustumCulled = false;
+  }, [count, data, dummy, colorTmp, morphProgress]);
+
+  // Organic float — GPU-light: update matrices each frame
+  useFrame(({ clock }) => {
+    const mesh = meshRef.current;
+    if (!mesh || reducedMotion) return;
+
+    const t = clock.elapsedTime;
+    const { posA, posB, seeds, scales, offsets } = data;
+    const m = Math.max(0, Math.min(1, morphProgress));
+    const e = m * m * (3 - 2 * m);
+
+    // Update every Nth particle per frame for perf, or all if count modest
+    const step = count > 40000 ? 2 : 1;
+    for (let i = 0; i < count; i += step) {
+      const seed = seeds[i];
+      const off = offsets[i];
+      const ax = posA[i * 3];
+      const ay = posA[i * 3 + 1];
+      const az = posA[i * 3 + 2];
+      const bx = posB[i * 3];
+      const by = posB[i * 3 + 1];
+      const bz = posB[i * 3 + 2];
+
+      let x = ax + (bx - ax) * e;
+      let y = ay + (by - ay) * e;
+      let z = az + (bz - az) * e;
+
+      const ft = t * 0.3 + off;
+      x += Math.sin(ft + seed * 6.28) * 0.02;
+      y += Math.cos(ft * 1.2 + seed * 4.1) * 0.018;
+      z += Math.sin(ft * 0.7 + seed * 9.2) * 0.02;
+
+      dummy.position.set(x, y, z);
+      dummy.scale.setScalar(scales[i]);
+      dummy.rotation.z = off + t * 0.1 * (seed - 0.5);
       dummy.updateMatrix();
       mesh.setMatrixAt(i, dummy.matrix);
     }
     mesh.instanceMatrix.needsUpdate = true;
-    mesh.frustumCulled = false;
-  }, [attrs, count, dummy]);
-
-  useFrame(({ clock }) => {
-    const mat = materialRef.current;
-    if (!mat) return;
-    mat.uniforms.uTime.value = clock.elapsedTime;
-    mat.uniforms.uMorph.value = morphProgress;
   });
 
   return (
