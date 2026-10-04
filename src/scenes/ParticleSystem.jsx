@@ -4,10 +4,13 @@ import * as THREE from 'three';
 import { generateShape } from './shapes.js';
 import { getParticleBudget } from '../hooks/useResponsive.js';
 
+// Dominant: yellow + white; secondary: purple/blue/cyan; accents: green/magenta
 const PALETTE = [
   new THREE.Color('#ffffff'),
+  new THREE.Color('#ffffff'),
   new THREE.Color('#f5d76e'),
-  new THREE.Color('#ecd6ff'),
+  new THREE.Color('#ffb829'),
+  new THREE.Color('#f5d76e'),
   new THREE.Color('#c39bd3'),
   new THREE.Color('#9b59b6'),
   new THREE.Color('#8052ff'),
@@ -16,7 +19,6 @@ const PALETTE = [
   new THREE.Color('#1abc9c'),
   new THREE.Color('#2ecc71'),
   new THREE.Color('#e84393'),
-  new THREE.Color('#ffb829'),
 ];
 
 function hash01(i) {
@@ -25,11 +27,9 @@ function hash01(i) {
 }
 
 /**
- * Phase 3 particle engine
- * - InstancedMesh (one draw call)
- * - Hollow triangular wireframes (wireframe: true)
- * - Multicolor density field
- * - Idle rotation on parent group only
+ * Phase 3/4 particle engine
+ * Hollow triangular wireframes forming a brain silhouette.
+ * Matrices set once; parent group rotates + breathes (no per-particle JS loop).
  */
 export default function ParticleSystem({
   shapeA = 'brain',
@@ -56,19 +56,22 @@ export default function ParticleSystem({
 
     for (let i = 0; i < count; i++) {
       const seed = hash01(i);
-      scales[i] = 0.07 + seed * 0.08;
+      // Tiny hollow triangles — still readable at distance
+      scales[i] = 0.04 + seed * 0.05;
 
       const x = pos[i * 3] || 0;
       const y = pos[i * 3 + 1] || 0;
       const z = pos[i * 3 + 2] || 0;
 
+      // Color regions: frontal yellow/white, lateral purple/blue, accents
       const region =
-        (Math.abs(x) * 1.2 + (y + 0.5) * 0.55 + (z + 0.5) * 0.4 + seed) * 0.55;
+        (Math.abs(x) * 1.1 + (y + 0.5) * 0.5 + (z + 0.6) * 0.55 + seed * 0.8) * 0.5;
       let band = Math.floor(region * PALETTE.length) % PALETTE.length;
       if (!Number.isFinite(band) || band < 0) band = 0;
       const c = PALETTE[band] || PALETTE[0];
 
-      const dim = 0.9 + hash01(i + 91) * 0.15;
+      // Uneven brightness — hollow/dark gaps between dense clusters
+      const dim = 0.65 + hash01(i + 91) * 0.4;
       colors[i * 3] = Math.min(1, c.r * dim);
       colors[i * 3 + 1] = Math.min(1, c.g * dim);
       colors[i * 3 + 2] = Math.min(1, c.b * dim);
@@ -95,9 +98,9 @@ export default function ParticleSystem({
     () =>
       new THREE.MeshBasicMaterial({
         color: 0xffffff,
-        wireframe: true,
+        wireframe: true, // hollow triangular outlines
         transparent: true,
-        opacity: 0.95,
+        opacity: 0.9,
         depthWrite: false,
         side: THREE.DoubleSide,
         toneMapped: false,
@@ -117,9 +120,9 @@ export default function ParticleSystem({
         pos[i * 3 + 1] ?? 0,
         pos[i * 3 + 2] ?? 0
       );
-      dummy.scale.setScalar(scales[i] ?? 0.08);
+      dummy.scale.setScalar(scales[i] ?? 0.05);
       dummy.rotation.set(
-        hash01(i + 1) * 0.9,
+        hash01(i + 1) * 1.2,
         hash01(i + 2) * Math.PI * 2,
         hash01(i + 3) * Math.PI * 2
       );
@@ -142,10 +145,18 @@ export default function ParticleSystem({
   }, [count, data, dummy, colorTmp]);
 
   useFrame(({ clock }) => {
-    if (reducedMotion || !groupRef.current) return;
+    if (!groupRef.current) return;
     const t = clock.elapsedTime;
-    groupRef.current.rotation.y = t * 0.05;
-    groupRef.current.rotation.x = Math.sin(t * 0.12) * 0.04;
+    if (reducedMotion) {
+      groupRef.current.rotation.y = 0.15;
+      groupRef.current.scale.setScalar(1);
+      return;
+    }
+    // Subtle rotate + breathe
+    groupRef.current.rotation.y = t * 0.045;
+    groupRef.current.rotation.x = Math.sin(t * 0.11) * 0.035;
+    const breath = 1 + Math.sin(t * 0.55) * 0.025;
+    groupRef.current.scale.setScalar(breath);
   });
 
   return (
