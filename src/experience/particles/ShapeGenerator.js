@@ -1,6 +1,6 @@
 /**
  * Procedural volumetric shapes — Dala-matched silhouettes.
- * Brain · Scatter · Bulb · Globe · Abstract · Pyramid
+ * Phase 3 brain: dual hemispheres · deep fissure · gyri · cerebellum · stem
  */
 
 function hash(n) {
@@ -12,7 +12,8 @@ function noise3(x, y, z) {
   return (
     Math.sin(x * 1.7 + y * 2.3 + z * 1.1) * 0.5 +
     Math.sin(x * 3.1 - y * 1.9 + z * 2.7) * 0.25 +
-    Math.sin(x * 5.3 + y * 4.1 - z * 3.2) * 0.125
+    Math.sin(x * 5.3 + y * 4.1 - z * 3.2) * 0.125 +
+    Math.sin(x * 9.1 + y * 7.3 + z * 6.2) * 0.06
   );
 }
 
@@ -42,71 +43,107 @@ export function createScatter(count) {
   return positions;
 }
 
+/**
+ * Phase 3 hero brain — clear silhouette:
+ * cortex folds, longitudinal fissure, L/R hemispheres,
+ * cerebellum dual lobes, brainstem taper.
+ */
 export function createBrain(count) {
   const positions = new Float32Array(count * 3);
-  const scaleX = 1.28;
-  const scaleY = 0.92;
-  const scaleZ = 1.48;
-  const nSurface = Math.floor(count * 0.68);
-  const nVolume = count - nSurface;
+  const scaleX = 1.32;
+  const scaleY = 0.9;
+  const scaleZ = 1.52;
 
-  for (let i = 0; i < nSurface; i++) {
-    let { x, y, z } = fibDirection(i, nSurface);
+  const nCortex = Math.floor(count * 0.72);
+  const nInterior = Math.floor(count * 0.18);
+  const nCerebellum = Math.floor(count * 0.07);
+  const nStem = count - nCortex - nInterior - nCerebellum;
+  let idx = 0;
 
-    const n1 = noise3(x * 2.4, y * 2.4, z * 2.4);
-    const n2 = noise3(x * 6.0 + 1.3, y * 6.0, z * 6.0 - 0.7);
-    const n3 = noise3(x * 12.0, y * 12.0 + 2.1, z * 12.0);
-    const n4 = noise3(x * 22.0 + 3.7, y * 22.0, z * 22.0 - 1.4);
-    const fold = 0.14 * n1 + 0.08 * n2 + 0.035 * n3 + 0.015 * n4;
+  // Cortex surface
+  for (let i = 0; i < nCortex; i++) {
+    let { x, y, z } = fibDirection(i, nCortex);
 
-    const fissure = -0.15 * Math.exp(-x * x * 20.0);
-    const hemiPush = Math.sign(x || 0.001) * 0.12 * Math.abs(x);
+    const n1 = noise3(x * 2.5, y * 2.5, z * 2.5);
+    const n2 = noise3(x * 6.5 + 1.2, y * 6.5, z * 6.5 - 0.8);
+    const n3 = noise3(x * 13.0, y * 13.0 + 2.0, z * 13.0);
+    const n4 = noise3(x * 24.0 + 4.1, y * 24.0, z * 24.0 - 1.5);
+    const fold = 0.15 * n1 + 0.09 * n2 + 0.04 * n3 + 0.018 * n4;
 
-    const cereY = Math.max(0, -y + 0.15);
-    const cereZ = Math.max(0, z);
-    const cerebellum = 0.13 * cereY * cereZ * cereZ;
+    const fissure = -0.18 * Math.exp(-x * x * 22.0);
+    const hemi = Math.sign(x || 0.001) * 0.14 * Math.min(1, Math.abs(x) * 1.4);
+    const frontal = Math.max(0, -z) * 0.055;
+    const occip = Math.max(0, z) * Math.max(0, y) * 0.04;
+    const temporal = Math.max(0, Math.abs(x) - 0.3) * Math.max(0, -y + 0.2) * 0.05;
 
-    const stemMask = Math.exp(-(x * x * 6 + z * z * 4)) * Math.max(0, -y);
-    const stemY = -0.09 * stemMask;
-    const stemIn = -0.05 * stemMask;
-
-    const frontal = Math.max(0, -z) * 0.045;
-    const occip = Math.max(0, z) * Math.max(0, y) * 0.03;
-
-    let radius = 1.0 + fold + fissure + hemiPush + cerebellum + frontal + occip;
+    const radius = 1.0 + fold + fissure + hemi + frontal + occip + temporal;
 
     x *= radius * scaleX;
     y *= radius * scaleY;
     z *= radius * scaleZ;
+    y += 0.1;
 
-    y += 0.06 + stemY;
-    x *= 1.0 + stemIn;
-    z *= 1.0 + stemIn * 0.5;
+    x += (hash(i * 0.137 + 19.7) - 0.5) * 0.018;
+    y += (hash(i * 0.271 + 3.1) - 0.5) * 0.014;
+    z += (hash(i * 0.419 + 7.9) - 0.5) * 0.018;
 
-    x += (hash(i * 0.137 + 19.7) - 0.5) * 0.02;
-    y += (hash(i * 0.271 + 3.1) - 0.5) * 0.016;
-    z += (hash(i * 0.419 + 7.9) - 0.5) * 0.02;
-
-    positions[i * 3] = x;
-    positions[i * 3 + 1] = y;
-    positions[i * 3 + 2] = z;
+    positions[idx * 3] = x;
+    positions[idx * 3 + 1] = y;
+    positions[idx * 3 + 2] = z;
+    idx++;
   }
 
-  for (let j = 0; j < nVolume; j++) {
-    const i = nSurface + j;
-    let { x, y, z } = fibDirection(j * 3 + 7, nVolume * 3);
+  // Interior fill
+  for (let j = 0; j < nInterior; j++) {
+    let { x, y, z } = fibDirection(j * 5 + 3, nInterior * 2);
     const u = hash(j * 0.91 + 2.3);
-    const r = 0.45 + Math.cbrt(u) * 0.4;
-    const n1 = noise3(x * 3.1, y * 3.1, z * 3.1) * 0.06;
-    const hemi = Math.sign(x || 0.001) * 0.05 * Math.abs(x);
-    const fissure = -0.08 * Math.exp(-x * x * 14.0);
+    const r = 0.42 + Math.cbrt(u) * 0.42;
+    const n1 = noise3(x * 3.2, y * 3.2, z * 3.2) * 0.05;
+    const hemi = Math.sign(x || 0.001) * 0.06 * Math.abs(x);
+    const fissure = -0.1 * Math.exp(-x * x * 16.0);
     x *= (r + n1 + hemi + fissure) * scaleX;
     y *= (r + n1) * scaleY;
     z *= (r + n1) * scaleZ;
-    y += 0.05;
-    positions[i * 3] = x;
-    positions[i * 3 + 1] = y;
-    positions[i * 3 + 2] = z;
+    y += 0.08;
+    positions[idx * 3] = x;
+    positions[idx * 3 + 1] = y;
+    positions[idx * 3 + 2] = z;
+    idx++;
+  }
+
+  // Cerebellum dual lobes (rear-bottom)
+  for (let j = 0; j < nCerebellum; j++) {
+    const side = hash(j * 0.5) > 0.5 ? 1 : -1;
+    const a = hash(j * 1.1) * Math.PI * 2;
+    const elev = (hash(j * 2.3) - 0.5) * Math.PI * 0.55;
+    const r = 0.22 + hash(j * 0.7) * 0.12;
+    const fold = noise3(a, elev, j * 0.1) * 0.04;
+    const cx = side * (0.22 + Math.cos(a) * (r + fold) * 0.7);
+    const cy = -0.55 + Math.sin(elev) * (r + fold) * 0.6;
+    const cz = 0.55 + Math.sin(a) * (r + fold) * 0.85;
+    positions[idx * 3] = cx * scaleX;
+    positions[idx * 3 + 1] = cy * scaleY + 0.06;
+    positions[idx * 3 + 2] = cz * scaleZ;
+    idx++;
+  }
+
+  // Brainstem
+  for (let j = 0; j < nStem && idx < count; j++) {
+    const t = j / Math.max(nStem - 1, 1);
+    const a = hash(j * 3.1) * Math.PI * 2;
+    const r = 0.14 * (1.0 - t * 0.55) + (hash(j) - 0.5) * 0.02;
+    positions[idx * 3] = Math.cos(a) * r * scaleX;
+    positions[idx * 3 + 1] = -0.35 - t * 0.45;
+    positions[idx * 3 + 2] = Math.sin(a) * r * 0.7 * scaleZ + 0.08;
+    idx++;
+  }
+
+  while (idx < count) {
+    const { x, y, z } = fibDirection(idx, count);
+    positions[idx * 3] = x * 0.5 * scaleX;
+    positions[idx * 3 + 1] = y * 0.5 * scaleY + 0.08;
+    positions[idx * 3 + 2] = z * 0.5 * scaleZ;
+    idx++;
   }
 
   return positions;
@@ -176,43 +213,36 @@ export function createGlobe(count) {
 
   function continentHeight(lon, lat) {
     let h = 0;
-
-    // Africa + horn
     {
       const dlon = lon - 0.35;
       const dlat = lat - 0.08;
       h += Math.exp(-(dlon * dlon * 2.6 + dlat * dlat * 3.2)) * 0.1;
       h += Math.exp(-((lon - 0.75) ** 2 * 8 + (lat - 0.15) ** 2 * 10)) * 0.06;
     }
-    // Eurasia + India
     {
       const dlon = lon - 1.35;
       const dlat = lat - 0.72;
       h += Math.exp(-(dlon * dlon * 0.75 + dlat * dlat * 4.0)) * 0.075;
       h += Math.exp(-((lon - 1.35) ** 2 * 6 + (lat - 0.28) ** 2 * 8)) * 0.04;
     }
-    // North America (taper south)
     {
       const dlon = lon + 1.75;
       const dlat = lat - 0.7;
       const taper = 1.0 - Math.max(0, lat + 0.2) * 0.5;
       h += Math.exp(-(dlon * dlon * 2.0 + dlat * dlat * 2.8)) * 0.08 * taper;
     }
-    // South America
     {
       const dlon = lon + 1.05;
       const dlat = lat + 0.25;
       const taper = 1.0 - Math.max(0, -lat - 0.1) * 0.4;
       h += Math.exp(-(dlon * dlon * 3.5 + dlat * dlat * 2.0)) * 0.085 * taper;
     }
-    // Australia
     {
       const dlon = lon - 2.35;
       const dlat = lat + 0.45;
       h += Math.exp(-(dlon * dlon * 5.0 + dlat * dlat * 5.5)) * 0.07;
     }
     if (lat < -1.0) h += 0.045 * Math.max(0, -lat - 1.0);
-
     const ocean = -0.04 * (1.0 - Math.min(1, h * 10));
     const coast = noise3(lon * 4.0, lat * 4.0, 0.5) * 0.015;
     return h + ocean + coast;
