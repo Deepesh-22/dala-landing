@@ -1,6 +1,6 @@
 /**
  * Procedural volumetric shapes — Dala-matched silhouettes.
- * Phase 3 brain: dual hemispheres · deep fissure · gyri · cerebellum · stem
+ * High-detail brain: lobes, sulci, fissure, cerebellum, stem.
  */
 
 function hash(n) {
@@ -13,7 +13,8 @@ function noise3(x, y, z) {
     Math.sin(x * 1.7 + y * 2.3 + z * 1.1) * 0.5 +
     Math.sin(x * 3.1 - y * 1.9 + z * 2.7) * 0.25 +
     Math.sin(x * 5.3 + y * 4.1 - z * 3.2) * 0.125 +
-    Math.sin(x * 9.1 + y * 7.3 + z * 6.2) * 0.06
+    Math.sin(x * 9.1 + y * 7.3 + z * 6.2) * 0.06 +
+    Math.sin(x * 17.0 + y * 13.0 + z * 11.0) * 0.03
   );
 }
 
@@ -26,6 +27,17 @@ function fibDirection(i, count) {
     y: Math.cos(inclination),
     z: Math.sin(inclination) * Math.sin(azimuth),
   };
+}
+
+/** Directed cortical ridges (sulci / gyri bands). */
+function sulcusRidge(x, y, z) {
+  // Primary bands wrap the cortex
+  const band1 = Math.sin(y * 9.0 + z * 3.5) * Math.cos(x * 2.0);
+  const band2 = Math.sin(z * 11.0 - y * 4.0) * Math.cos(x * 1.5 + 1.2);
+  const band3 = Math.sin((y + z) * 7.5 + x * 2.5);
+  // Fine secondary wrinkles
+  const fine = Math.sin(x * 18 + y * 22 + z * 14) * 0.35;
+  return 0.035 * band1 + 0.028 * band2 + 0.022 * band3 + 0.012 * fine;
 }
 
 export function createScatter(count) {
@@ -44,48 +56,86 @@ export function createScatter(count) {
 }
 
 /**
- * Phase 3 hero brain — clear silhouette:
- * cortex folds, longitudinal fissure, L/R hemispheres,
- * cerebellum dual lobes, brainstem taper.
+ * High-detail brain silhouette.
+ * Allocation: cortex 62% · interior 14% · sulcus ridges 8% ·
+ * cerebellum 10% · brainstem 6%
  */
 export function createBrain(count) {
   const positions = new Float32Array(count * 3);
-  const scaleX = 1.32;
-  const scaleY = 0.9;
-  const scaleZ = 1.52;
+  const scaleX = 1.38;
+  const scaleY = 0.88;
+  const scaleZ = 1.55;
 
-  const nCortex = Math.floor(count * 0.72);
-  const nInterior = Math.floor(count * 0.18);
-  const nCerebellum = Math.floor(count * 0.07);
-  const nStem = count - nCortex - nInterior - nCerebellum;
+  const nCortex = Math.floor(count * 0.62);
+  const nInterior = Math.floor(count * 0.14);
+  const nRidges = Math.floor(count * 0.08);
+  const nCerebellum = Math.floor(count * 0.1);
+  const nStem = count - nCortex - nInterior - nRidges - nCerebellum;
   let idx = 0;
 
-  // Cortex surface
+  // ── Cortex surface (main silhouette) ───────────────────────
   for (let i = 0; i < nCortex; i++) {
     let { x, y, z } = fibDirection(i, nCortex);
 
-    const n1 = noise3(x * 2.5, y * 2.5, z * 2.5);
-    const n2 = noise3(x * 6.5 + 1.2, y * 6.5, z * 6.5 - 0.8);
-    const n3 = noise3(x * 13.0, y * 13.0 + 2.0, z * 13.0);
-    const n4 = noise3(x * 24.0 + 4.1, y * 24.0, z * 24.0 - 1.5);
-    const fold = 0.15 * n1 + 0.09 * n2 + 0.04 * n3 + 0.018 * n4;
+    // Skip / thin the mid-sagittal plane for a readable fissure gap
+    const absX = Math.abs(x);
+    if (absX < 0.04 && hash(i * 0.51) > 0.35) {
+      // push sample toward a hemisphere instead of filling the gap
+      x = Math.sign(x || 1) * (0.08 + absX);
+    }
 
-    const fissure = -0.18 * Math.exp(-x * x * 22.0);
-    const hemi = Math.sign(x || 0.001) * 0.14 * Math.min(1, Math.abs(x) * 1.4);
-    const frontal = Math.max(0, -z) * 0.055;
-    const occip = Math.max(0, z) * Math.max(0, y) * 0.04;
-    const temporal = Math.max(0, Math.abs(x) - 0.3) * Math.max(0, -y + 0.2) * 0.05;
+    // Multi-octave organic folds
+    const n1 = noise3(x * 2.6, y * 2.6, z * 2.6);
+    const n2 = noise3(x * 6.8 + 1.2, y * 6.8, z * 6.8 - 0.8);
+    const n3 = noise3(x * 14.0, y * 14.0 + 2.0, z * 14.0);
+    const n4 = noise3(x * 26.0 + 4.1, y * 26.0, z * 26.0 - 1.5);
+    const n5 = noise3(x * 40.0, y * 38.0 + 1.1, z * 42.0);
+    const fold = 0.14 * n1 + 0.09 * n2 + 0.045 * n3 + 0.022 * n4 + 0.01 * n5;
 
-    const radius = 1.0 + fold + fissure + hemi + frontal + occip + temporal;
+    // Deep longitudinal fissure
+    const fissure = -0.22 * Math.exp(-x * x * 28.0);
+
+    // Hemisphere separation + slight upward dome per side
+    const hemi =
+      Math.sign(x || 0.001) * 0.16 * Math.min(1, absX * 1.5);
+    const hemiDome = 0.04 * Math.max(0, absX - 0.15) * Math.max(0, y);
+
+    // Lobe emphasis
+    const frontal = Math.max(0, -z) * (0.07 + 0.03 * Math.max(0, y)); // front
+    const parietal = Math.max(0, y) * Math.max(0, Math.abs(z) * 0.3) * 0.04;
+    const occip = Math.max(0, z) * Math.max(0, y + 0.1) * 0.055; // rear top
+    const temporal =
+      Math.max(0, absX - 0.25) * Math.max(0, -y + 0.15) * 0.07; // lower sides
+
+    // Directed sulcus ridges
+    const ridge = sulcusRidge(x, y, z);
+
+    let radius =
+      1.0 +
+      fold +
+      fissure +
+      hemi +
+      hemiDome +
+      frontal +
+      parietal +
+      occip +
+      temporal +
+      ridge;
+
+    // Flatten underside slightly (more brain-like base)
+    if (y < -0.2) {
+      radius *= 0.92 + 0.08 * Math.max(0, y + 0.55);
+    }
 
     x *= radius * scaleX;
     y *= radius * scaleY;
     z *= radius * scaleZ;
-    y += 0.1;
+    y += 0.12;
 
-    x += (hash(i * 0.137 + 19.7) - 0.5) * 0.018;
-    y += (hash(i * 0.271 + 3.1) - 0.5) * 0.014;
-    z += (hash(i * 0.419 + 7.9) - 0.5) * 0.018;
+    // Micro jitter (keeps surface alive without blurring silhouette)
+    x += (hash(i * 0.137 + 19.7) - 0.5) * 0.014;
+    y += (hash(i * 0.271 + 3.1) - 0.5) * 0.012;
+    z += (hash(i * 0.419 + 7.9) - 0.5) * 0.014;
 
     positions[idx * 3] = x;
     positions[idx * 3 + 1] = y;
@@ -93,56 +143,90 @@ export function createBrain(count) {
     idx++;
   }
 
-  // Interior fill
+  // ── Explicit sulcus ridge particles (surface accent lines) ─
+  for (let j = 0; j < nRidges; j++) {
+    const side = hash(j * 0.31) > 0.5 ? 1 : -1;
+    const t = j / Math.max(nRidges - 1, 1);
+    // Trace curved paths along each hemisphere
+    const path = t * Math.PI * 1.6 - 0.3;
+    const lat = (hash(j * 1.7) - 0.4) * 1.1;
+    let x = side * (0.35 + 0.45 * Math.cos(path * 0.9));
+    let y = Math.sin(lat) * 0.55 + 0.15 * Math.sin(path * 2);
+    let z = Math.sin(path) * 0.7 + 0.1 * Math.cos(lat * 3);
+
+    // Project outward onto cortex-ish radius
+    const len = Math.sqrt(x * x + y * y + z * z) || 1;
+    const r =
+      1.05 +
+      sulcusRidge(x / len, y / len, z / len) +
+      noise3(x, y, z) * 0.04;
+    x = (x / len) * r * scaleX;
+    y = (y / len) * r * scaleY + 0.12;
+    z = (z / len) * r * scaleZ;
+
+    positions[idx * 3] = x;
+    positions[idx * 3 + 1] = y;
+    positions[idx * 3 + 2] = z;
+    idx++;
+  }
+
+  // ── Interior volume (near cortex, keeps body solid) ────────
   for (let j = 0; j < nInterior; j++) {
     let { x, y, z } = fibDirection(j * 5 + 3, nInterior * 2);
     const u = hash(j * 0.91 + 2.3);
-    const r = 0.42 + Math.cbrt(u) * 0.42;
-    const n1 = noise3(x * 3.2, y * 3.2, z * 3.2) * 0.05;
-    const hemi = Math.sign(x || 0.001) * 0.06 * Math.abs(x);
-    const fissure = -0.1 * Math.exp(-x * x * 16.0);
+    const r = 0.4 + Math.cbrt(u) * 0.45;
+    const n1 = noise3(x * 3.4, y * 3.4, z * 3.4) * 0.05;
+    const hemi = Math.sign(x || 0.001) * 0.07 * Math.abs(x);
+    const fissure = -0.12 * Math.exp(-x * x * 18.0);
     x *= (r + n1 + hemi + fissure) * scaleX;
     y *= (r + n1) * scaleY;
     z *= (r + n1) * scaleZ;
-    y += 0.08;
+    y += 0.1;
     positions[idx * 3] = x;
     positions[idx * 3 + 1] = y;
     positions[idx * 3 + 2] = z;
     idx++;
   }
 
-  // Cerebellum dual lobes (rear-bottom)
+  // ── Cerebellum — dual lobes with foliation stripes ─────────
   for (let j = 0; j < nCerebellum; j++) {
     const side = hash(j * 0.5) > 0.5 ? 1 : -1;
     const a = hash(j * 1.1) * Math.PI * 2;
-    const elev = (hash(j * 2.3) - 0.5) * Math.PI * 0.55;
-    const r = 0.22 + hash(j * 0.7) * 0.12;
-    const fold = noise3(a, elev, j * 0.1) * 0.04;
-    const cx = side * (0.22 + Math.cos(a) * (r + fold) * 0.7);
-    const cy = -0.55 + Math.sin(elev) * (r + fold) * 0.6;
-    const cz = 0.55 + Math.sin(a) * (r + fold) * 0.85;
+    const elev = (hash(j * 2.3) - 0.55) * Math.PI * 0.65;
+    const r = 0.2 + hash(j * 0.7) * 0.14;
+
+    // Foliation: striped displacement on cerebellum surface
+    const folio = Math.sin(a * 8.0 + elev * 6.0) * 0.035;
+    const fold = noise3(a * 2, elev * 2, j * 0.1) * 0.03 + folio;
+
+    const cx = side * (0.26 + Math.cos(a) * (r + fold) * 0.75);
+    const cy = -0.58 + Math.sin(elev) * (r + fold) * 0.55;
+    const cz = 0.58 + Math.sin(a) * (r + fold) * 0.9;
+
     positions[idx * 3] = cx * scaleX;
-    positions[idx * 3 + 1] = cy * scaleY + 0.06;
+    positions[idx * 3 + 1] = cy * scaleY + 0.08;
     positions[idx * 3 + 2] = cz * scaleZ;
     idx++;
   }
 
-  // Brainstem
+  // ── Brainstem + slight pons bulge ──────────────────────────
   for (let j = 0; j < nStem && idx < count; j++) {
     const t = j / Math.max(nStem - 1, 1);
     const a = hash(j * 3.1) * Math.PI * 2;
-    const r = 0.14 * (1.0 - t * 0.55) + (hash(j) - 0.5) * 0.02;
+    // Wider near brain, taper down; mild pons bulge mid-way
+    const pons = Math.exp(-Math.pow((t - 0.25) * 4.0, 2)) * 0.04;
+    const r = 0.13 * (1.0 - t * 0.6) + pons + (hash(j) - 0.5) * 0.018;
     positions[idx * 3] = Math.cos(a) * r * scaleX;
-    positions[idx * 3 + 1] = -0.35 - t * 0.45;
-    positions[idx * 3 + 2] = Math.sin(a) * r * 0.7 * scaleZ + 0.08;
+    positions[idx * 3 + 1] = -0.32 - t * 0.5;
+    positions[idx * 3 + 2] = Math.sin(a) * r * 0.65 * scaleZ + 0.06;
     idx++;
   }
 
   while (idx < count) {
     const { x, y, z } = fibDirection(idx, count);
-    positions[idx * 3] = x * 0.5 * scaleX;
-    positions[idx * 3 + 1] = y * 0.5 * scaleY + 0.08;
-    positions[idx * 3 + 2] = z * 0.5 * scaleZ;
+    positions[idx * 3] = x * 0.45 * scaleX;
+    positions[idx * 3 + 1] = y * 0.45 * scaleY + 0.1;
+    positions[idx * 3 + 2] = z * 0.45 * scaleZ;
     idx++;
   }
 
