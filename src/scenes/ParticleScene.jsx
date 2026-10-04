@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import AmbientParticles from './AmbientParticles.jsx';
 import CameraController from './CameraController.jsx';
 import ParticleSystem from './ParticleSystem.jsx';
 
@@ -13,11 +14,12 @@ export default function ParticleScene({ reducedMotion = false }) {
     <>
       <color attach="background" args={['#000000']} />
       <CameraController />
-      <group
-        position={[0.5, -0.05, 0]}
-        scale={1.05}
-        rotation={[0.1, -0.4, 0.02]}
-      >
+
+      {/* Sparse floating triangles in the void */}
+      <AmbientParticles count={reducedMotion ? 300 : 700} />
+
+      {/* Side-profile brain — no extra Y-rotation (already lateral in shape data) */}
+      <group position={[0.65, 0.05, 0]} scale={1.15}>
         <ParticleSystem
           shapeA={morph.shapeA}
           shapeB={morph.shapeB}
