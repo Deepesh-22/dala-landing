@@ -38,7 +38,11 @@ export default function App() {
     },
     4: {
       title: 'Morph physics',
-      body: 'Spring + damping morph. Watch brain dissolve into scatter, then reform as bulb, globe, abstract — and loop. No snap, mid-morph turbulence.',
+      body: 'Spring + damping morph. Watch brain dissolve into scatter, then reform as bulb, globe, abstract — and loop.',
+    },
+    5: {
+      title: 'Ambient + all shapes',
+      body: 'Sparse background triangles drift forever. Main form still morphs through brain, scatter, bulb, globe, abstract.',
     },
   };
 
