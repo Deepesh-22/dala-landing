@@ -20,10 +20,8 @@ function hash01(i) {
 }
 
 /**
- * Lightweight particle field.
- * - Caps count so main thread never freezes
- * - Sets instance matrices ONCE (no per-frame loop)
- * - Whole group rotates slowly for “alive” feel
+ * Phase 3 particle field — visible filled triangles forming a brain.
+ * Matrices set once; group rotates for idle motion (no per-frame matrix storm).
  */
 export default function ParticleSystem({
   shapeA = 'brain',
@@ -32,10 +30,9 @@ export default function ParticleSystem({
   const meshRef = useRef(null);
   const groupRef = useRef(null);
 
-  // Hard cap — previous 60k×frame updates froze the tab (black screen)
   const count = useMemo(() => {
     const n = getParticleCount();
-    return Math.min(n, 12000);
+    return Math.min(Math.max(n, 4000), 14000);
   }, []);
 
   const dummy = useMemo(() => new THREE.Object3D(), []);
@@ -48,7 +45,8 @@ export default function ParticleSystem({
 
     for (let i = 0; i < count; i++) {
       const seed = hash01(i);
-      scales[i] = 0.018 + seed * 0.02;
+      // Larger fragments so structure reads on screen
+      scales[i] = 0.028 + seed * 0.032;
 
       const x = pos[i * 3];
       const y = pos[i * 3 + 1];
@@ -57,25 +55,27 @@ export default function ParticleSystem({
         (Math.abs(x) * 1.2 + (y + 0.5) * 0.55 + (z + 0.5) * 0.45 + seed) * 0.55;
       const band = Math.floor(region * PALETTE.length) % PALETTE.length;
       const col = PALETTE[band];
-      const dim = 0.65 + hash01(i + 99) * 0.35;
-      colors[i * 3] = col.r * dim;
-      colors[i * 3 + 1] = col.g * dim;
-      colors[i * 3 + 2] = col.b * dim;
+      const dim = 0.75 + hash01(i + 99) * 0.35;
+      colors[i * 3] = Math.min(1, col.r * dim);
+      colors[i * 3 + 1] = Math.min(1, col.g * dim);
+      colors[i * 3 + 2] = Math.min(1, col.b * dim);
     }
 
     return { pos, scales, colors };
   }, [count, shapeA]);
 
+  // Unit triangle — scaled per-instance
   const geometry = useMemo(() => {
     const geo = new THREE.BufferGeometry();
     const s = 1;
     geo.setAttribute(
       'position',
       new THREE.Float32BufferAttribute(
-        [0, s * 1.2, 0, -s, -s * 0.7, 0, s, -s * 0.7, 0],
+        [0, s * 1.15, 0, -s, -s * 0.65, 0, s, -s * 0.65, 0],
         3
       )
     );
+    geo.computeVertexNormals();
     return geo;
   }, []);
 
@@ -83,11 +83,13 @@ export default function ParticleSystem({
     () =>
       new THREE.MeshBasicMaterial({
         color: 0xffffff,
-        wireframe: true,
+        // Filled triangles read better than pure wireframe on black
+        wireframe: false,
         transparent: true,
-        opacity: 0.9,
+        opacity: 0.88,
         depthWrite: false,
         side: THREE.DoubleSide,
+        toneMapped: false,
       }),
     []
   );
@@ -98,10 +100,26 @@ export default function ParticleSystem({
 
     const { pos, scales, colors } = data;
 
+    // Ensure instanceColor buffer exists
+    if (!mesh.instanceColor) {
+      mesh.instanceColor = new THREE.InstancedBufferAttribute(
+        new Float32Array(count * 3),
+        3
+      );
+    }
+
     for (let i = 0; i < count; i++) {
-      dummy.position.set(pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2]);
+      const px = pos[i * 3];
+      const py = pos[i * 3 + 1];
+      const pz = pos[i * 3 + 2];
+
+      dummy.position.set(px, py, pz);
       dummy.scale.setScalar(scales[i]);
-      dummy.rotation.set(0, 0, hash01(i) * Math.PI * 2);
+      dummy.rotation.set(
+        hash01(i + 1) * 0.6,
+        hash01(i + 2) * Math.PI * 2,
+        hash01(i) * Math.PI * 2
+      );
       dummy.updateMatrix();
       mesh.setMatrixAt(i, dummy.matrix);
 
@@ -109,18 +127,18 @@ export default function ParticleSystem({
       mesh.setColorAt(i, colorTmp);
     }
 
+    mesh.count = count;
     mesh.instanceMatrix.needsUpdate = true;
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-    mesh.count = count;
     mesh.frustumCulled = false;
+    mesh.visible = true;
   }, [count, data, dummy, colorTmp]);
 
-  // Only rotate the group — zero per-particle work
   useFrame(({ clock }) => {
     if (reducedMotion || !groupRef.current) return;
     const t = clock.elapsedTime;
-    groupRef.current.rotation.y = t * 0.08;
-    groupRef.current.rotation.x = Math.sin(t * 0.15) * 0.04;
+    groupRef.current.rotation.y = t * 0.07;
+    groupRef.current.rotation.x = Math.sin(t * 0.14) * 0.05;
   });
 
   return (
@@ -129,6 +147,8 @@ export default function ParticleSystem({
         ref={meshRef}
         args={[geometry, material, count]}
         frustumCulled={false}
+        castShadow={false}
+        receiveShadow={false}
       />
     </group>
   );

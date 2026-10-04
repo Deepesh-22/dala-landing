@@ -1,20 +1,22 @@
-import { useState } from 'react';
 import AmbientParticles from './AmbientParticles.jsx';
 import CameraController from './CameraController.jsx';
 import ParticleSystem from './ParticleSystem.jsx';
 
+/**
+ * Phase 3 scene — brain particle field centered and sized to read clearly.
+ */
 export default function ParticleScene({ reducedMotion = false }) {
-  const [morph] = useState({ shapeA: 'brain' });
-
   return (
     <>
       <color attach="background" args={['#000000']} />
       <CameraController />
 
-      <AmbientParticles count={180} />
+      {/* Sparse ambient field */}
+      <AmbientParticles count={120} />
 
-      <group position={[0.5, 0.05, 0]} scale={0.85}>
-        <ParticleSystem shapeA={morph.shapeA} reducedMotion={reducedMotion} />
+      {/* Brain centered in view */}
+      <group position={[0, 0.05, 0]} scale={1.35}>
+        <ParticleSystem shapeA="brain" reducedMotion={reducedMotion} />
       </group>
     </>
   );

@@ -11,13 +11,13 @@ const COLORS = [
   new THREE.Color('#ffffff'),
 ];
 
-export default function AmbientParticles({ count = 200 }) {
+/** Sparse ambient field — cheap group rotation only. */
+export default function AmbientParticles({ count = 120 }) {
   const meshRef = useRef(null);
   const dummy = useMemo(() => new THREE.Object3D(), []);
 
   const data = useMemo(() => {
     const bases = new Float32Array(count * 3);
-    const spins = new Float32Array(count);
     const scales = new Float32Array(count);
     const colorIdx = new Uint8Array(count);
 
@@ -25,22 +25,21 @@ export default function AmbientParticles({ count = 200 }) {
       const t = i / count;
       const incl = Math.acos(1 - 2 * t);
       const az = Math.PI * 2 * 1.618 * i;
-      const R = 2.6 + (i % 7) * 0.4;
+      const R = 3.2 + (i % 7) * 0.35;
       bases[i * 3] = Math.sin(incl) * Math.cos(az) * R;
-      bases[i * 3 + 1] = Math.cos(incl) * R * 0.65;
+      bases[i * 3 + 1] = Math.cos(incl) * R * 0.55;
       bases[i * 3 + 2] = Math.sin(incl) * Math.sin(az) * R;
-      spins[i] = (Math.sin(i) * 0.5) * 0.15;
-      scales[i] = 0.02 + (i % 4) * 0.008;
+      scales[i] = 0.03 + (i % 4) * 0.012;
       colorIdx[i] = i % COLORS.length;
     }
-    return { bases, spins, scales, colorIdx };
+    return { bases, scales, colorIdx };
   }, [count]);
 
   const geometry = useMemo(() => {
     const geo = new THREE.BufferGeometry();
     geo.setAttribute(
       'position',
-      new THREE.Float32BufferAttribute([0, 1.2, 0, -1, -0.7, 0, 1, -0.7, 0], 3)
+      new THREE.Float32BufferAttribute([0, 1.1, 0, -1, -0.65, 0, 1, -0.65, 0], 3)
     );
     return geo;
   }, []);
@@ -50,10 +49,11 @@ export default function AmbientParticles({ count = 200 }) {
       new THREE.MeshBasicMaterial({
         color: 0xffffff,
         transparent: true,
-        opacity: 0.55,
+        opacity: 0.45,
         depthWrite: false,
-        wireframe: true,
+        wireframe: false,
         side: THREE.DoubleSide,
+        toneMapped: false,
       }),
     []
   );
@@ -63,6 +63,13 @@ export default function AmbientParticles({ count = 200 }) {
     if (!mesh) return;
     const { bases, scales, colorIdx } = data;
 
+    if (!mesh.instanceColor) {
+      mesh.instanceColor = new THREE.InstancedBufferAttribute(
+        new Float32Array(count * 3),
+        3
+      );
+    }
+
     for (let i = 0; i < count; i++) {
       dummy.position.set(bases[i * 3], bases[i * 3 + 1], bases[i * 3 + 2]);
       dummy.scale.setScalar(scales[i]);
@@ -71,6 +78,7 @@ export default function AmbientParticles({ count = 200 }) {
       mesh.setMatrixAt(i, dummy.matrix);
       mesh.setColorAt(i, COLORS[colorIdx[i]]);
     }
+    mesh.count = count;
     mesh.instanceMatrix.needsUpdate = true;
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
     mesh.frustumCulled = false;
@@ -79,8 +87,7 @@ export default function AmbientParticles({ count = 200 }) {
   useFrame(({ clock }) => {
     const mesh = meshRef.current;
     if (!mesh) return;
-    // Slow spin of ambient field only — cheap
-    mesh.rotation.y = clock.elapsedTime * 0.03;
+    mesh.rotation.y = clock.elapsedTime * 0.025;
   });
 
   return (
