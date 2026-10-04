@@ -10,13 +10,11 @@ export default function App() {
   const { reducedMotion, isMobile } = useResponsive();
   const [ready, setReady] = useState(false);
 
-  // Loader: brief settle so first paint is black, not flash
   useEffect(() => {
-    const t = setTimeout(() => setReady(true), 400);
+    const t = setTimeout(() => setReady(true), 500);
     return () => clearTimeout(t);
   }, []);
 
-  // Smooth scroll (disabled when reduced motion)
   useEffect(() => {
     if (reducedMotion) return undefined;
 
@@ -43,12 +41,11 @@ export default function App() {
     <>
       <Loader ready={ready} />
 
-      {/* Fixed WebGL — never scrolls away */}
-      <WebGLCanvas reducedMotion={reducedMotion || isMobile} />
+      {/* Pass reducedMotion only for accessibility — not for all mobile */}
+      <WebGLCanvas reducedMotion={reducedMotion} isMobile={isMobile} />
 
       <Navigation />
 
-      {/* Scrollable editorial content above canvas */}
       <main className="page-root">
         <Sections />
       </main>
