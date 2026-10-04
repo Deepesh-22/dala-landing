@@ -1,4 +1,4 @@
-/* Phase 1–6 — foundation, nav, particles, hero composition */
+/* Phase 1–8 — foundation through editorial manifesto */
 
 :root {
   --bg: #000000;
@@ -52,7 +52,6 @@ body {
   position: relative;
 }
 
-/* Fixed full-viewport WebGL — behind HTML */
 .webgl-root {
   position: fixed !important;
   inset: 0 !important;
@@ -71,7 +70,6 @@ body {
   height: 100% !important;
 }
 
-/* Fallback glow */
 .webgl-fallback {
   position: absolute;
   inset: 0;
@@ -142,7 +140,6 @@ body {
   }
 }
 
-/* HTML above canvas — text stays crisp while particles move */
 .page-root {
   position: relative;
   z-index: 1;
@@ -155,7 +152,7 @@ body {
   pointer-events: auto;
 }
 
-/* ─── Phase 6 Hero ─── */
+/* ─── Hero ─── */
 .hero {
   position: relative;
   min-height: 100vh;
@@ -238,10 +235,49 @@ body {
   filter: brightness(1.08);
 }
 
-/* Right column — empty HTML slot; brain is WebGL */
 .hero__visual {
   pointer-events: none;
   min-height: 50vh;
+}
+
+/* ─── Phase 8 Manifesto (poster / editorial) ─── */
+.manifesto {
+  position: relative;
+  min-height: 160vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20vh 6vw;
+  pointer-events: none;
+}
+
+.manifesto__inner {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(3.5rem, 8vh, 6rem);
+}
+
+.manifesto__statement {
+  font-size: clamp(1.65rem, 3.8vw, 3.25rem);
+  font-weight: 300;
+  line-height: 1.18;
+  letter-spacing: -0.028em;
+  color: var(--text);
+  max-width: 18em;
+  margin: 0 auto;
+  will-change: opacity, transform;
+}
+
+.manifesto__statement--secondary {
+  font-size: clamp(1.35rem, 2.8vw, 2.35rem);
+  color: rgba(255, 255, 255, 0.88);
+  max-width: 16em;
+  line-height: 1.22;
 }
 
 /* Other sections */
@@ -404,7 +440,6 @@ body {
   transform: translateY(-3.5px) rotate(-45deg);
 }
 
-/* Loader */
 .loader {
   position: fixed;
   inset: 0;
@@ -443,6 +478,10 @@ body {
   .webgl-fallback__glow {
     animation: none;
   }
+  .manifesto__statement {
+    opacity: 1 !important;
+    transform: none !important;
+  }
 }
 
 @media (max-width: 900px) {
@@ -474,6 +513,19 @@ body {
 
   .hero__visual {
     display: none;
+  }
+
+  .manifesto {
+    min-height: 140vh;
+    padding: 16vh 5vw;
+  }
+
+  .manifesto__statement {
+    font-size: clamp(1.4rem, 5.5vw, 2rem);
+  }
+
+  .manifesto__statement--secondary {
+    font-size: clamp(1.15rem, 4.2vw, 1.55rem);
   }
 
   .section {

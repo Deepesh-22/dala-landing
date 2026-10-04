@@ -5,10 +5,7 @@ export const SECTIONS = [
   },
   {
     id: 'manifesto',
-    label: 'Manifesto',
-    title: 'From fragments to form',
-    body: 'Each particle carries position, color, and a private rhythm. The whole remains one continuous experience.',
-    shape: 'scatter',
+    shape: 'distorted',
   },
   {
     id: 'feature-01',
@@ -36,6 +33,6 @@ export const SECTIONS = [
     label: 'Access',
     title: 'Request access',
     body: 'Join the next chapter of the experience.',
-    shape: 'abstract',
+    shape: 'structure',
   },
 ];

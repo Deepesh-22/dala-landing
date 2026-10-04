@@ -1,18 +1,14 @@
 # Build phases
 
-## Phase 1–6 ✅
-Foundation, nav, particles, brain, floating field, hero
+## Phase 1–7 ✅
+Foundation, nav, particles, brain, field, hero, morph
 
-## Phase 7 — Scroll-driven morph ✅
-Shape states:
-0 brain → 1 distorted → 2 abstract → 3 bulb → 4 scatter → 5 structure
-
-- GSAP ScrollTrigger scrub (reversible)
-- Per-particle lag (seed-based delay)
-- Noise-based spread mid-transition
-- Color cool-shift with progress
-- Group rotation + camera pullback
-- Shared scrollStore (no React re-render per tick)
+## Phase 8 — Editorial manifesto ✅
+- Full-screen centered poster typography
+- Two statement blocks, max-width ~1200px
+- ScrollTrigger scrub: fade + y on enter/exit
+- Continuous with fixed WebGL morph (no page break feel)
+- No cards / no SaaS containers
 
 ## Next
-Phase 8+: post-processing, polish
+Phase 9+: more sections polish / post-processing
