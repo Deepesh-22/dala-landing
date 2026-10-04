@@ -5,12 +5,22 @@ import { buildMorphTargets } from './shapes.js';
 import { getParticleBudget } from '../hooks/useResponsive.js';
 import { scrollStore } from '../lib/scrollStore.js';
 
-const PALETTE = [
+// Yellow/white dominant for brain · cooler accents later
+const PALETTE_WARM = [
   new THREE.Color('#ffffff'),
   new THREE.Color('#ffffff'),
-  new THREE.Color('#f8f1d4'),
+  new THREE.Color('#fff6d6'),
   new THREE.Color('#f5d76e'),
   new THREE.Color('#ffb829'),
+  new THREE.Color('#f0c14a'),
+  new THREE.Color('#c39bd3'),
+  new THREE.Color('#9b59b6'),
+  new THREE.Color('#8052ff'),
+  new THREE.Color('#5dade2'),
+];
+
+const PALETTE_COOL = [
+  new THREE.Color('#ffffff'),
   new THREE.Color('#ecd6ff'),
   new THREE.Color('#c39bd3'),
   new THREE.Color('#9b59b6'),
@@ -33,45 +43,63 @@ function smoothstep(e0, e1, x) {
 }
 
 /**
- * Phase 7 — scroll-driven morphing particle system.
- * 6 shape targets · lagged mix · noise spread · color shift
+ * Morphing particle system — polished lag, noise, color, performance.
  */
 export default function ParticleSystem({ reducedMotion = false }) {
   const meshRef = useRef(null);
   const groupRef = useRef(null);
   const lastMorph = useRef(-1);
+  const frameSkip = useRef(0);
 
   const count = useMemo(() => {
     try {
-      return getParticleBudget();
+      // Slightly lighter budget for smoother morph updates
+      return Math.min(getParticleBudget(), 48000);
     } catch {
-      return 40000;
+      return 36000;
     }
   }, []);
 
   const dummy = useMemo(() => new THREE.Object3D(), []);
   const colorTmp = useMemo(() => new THREE.Color(), []);
 
-  const { targets, scales, seeds, baseColors } = useMemo(() => {
+  const { targets, scales, seeds, warmColors, coolColors } = useMemo(() => {
     const targets = buildMorphTargets(count);
     const scales = new Float32Array(count);
     const seeds = new Float32Array(count);
-    const baseColors = new Float32Array(count * 3);
+    const warmColors = new Float32Array(count * 3);
+    const coolColors = new Float32Array(count * 3);
+    const brain = targets[0];
 
     for (let i = 0; i < count; i++) {
       const seed = hash01(i);
       seeds[i] = seed;
       scales[i] = 0.018 + seed * 0.022;
 
-      const band = Math.floor(seed * PALETTE.length) % PALETTE.length;
-      const c = PALETTE[band] || PALETTE[0];
-      const dim = 0.7 + hash01(i + 91) * 0.35;
-      baseColors[i * 3] = Math.min(1, c.r * dim);
-      baseColors[i * 3 + 1] = Math.min(1, c.g * dim);
-      baseColors[i * 3 + 2] = Math.min(1, c.b * dim);
+      // Position-based warm coloring for brain core (yellow/white frontal)
+      const bx = brain[i * 3] || 0;
+      const by = brain[i * 3 + 1] || 0;
+      const bz = brain[i * 3 + 2] || 0;
+      const frontal = Math.max(0, bz + 0.2);
+      const region = (frontal * 0.5 + Math.abs(bx) * 0.25 + seed * 0.4) * 0.6;
+      let wi = Math.floor(region * PALETTE_WARM.length) % PALETTE_WARM.length;
+      if (!Number.isFinite(wi) || wi < 0) wi = 0;
+      const w = PALETTE_WARM[wi] || PALETTE_WARM[0];
+      // Boost yellow/white brightness on brain
+      const wDim = 0.85 + hash01(i + 91) * 0.2;
+      warmColors[i * 3] = Math.min(1, w.r * wDim);
+      warmColors[i * 3 + 1] = Math.min(1, w.g * wDim);
+      warmColors[i * 3 + 2] = Math.min(1, w.b * wDim * 0.92);
+
+      let ci = Math.floor(seed * PALETTE_COOL.length) % PALETTE_COOL.length;
+      const c = PALETTE_COOL[ci] || PALETTE_COOL[0];
+      const cDim = 0.7 + hash01(i + 17) * 0.3;
+      coolColors[i * 3] = Math.min(1, c.r * cDim);
+      coolColors[i * 3 + 1] = Math.min(1, c.g * cDim);
+      coolColors[i * 3 + 2] = Math.min(1, c.b * cDim);
     }
 
-    return { targets, scales, seeds, baseColors };
+    return { targets, scales, seeds, warmColors, coolColors };
   }, [count]);
 
   const geometry = useMemo(() => {
@@ -93,7 +121,7 @@ export default function ParticleSystem({ reducedMotion = false }) {
         color: 0xffffff,
         wireframe: true,
         transparent: true,
-        opacity: 0.88,
+        opacity: 0.9,
         depthWrite: false,
         side: THREE.DoubleSide,
         toneMapped: false,
@@ -101,7 +129,6 @@ export default function ParticleSystem({ reducedMotion = false }) {
     []
   );
 
-  // Initial placement at brain
   useLayoutEffect(() => {
     const mesh = meshRef.current;
     if (!mesh) return;
@@ -119,9 +146,9 @@ export default function ParticleSystem({ reducedMotion = false }) {
       mesh.setMatrixAt(i, dummy.matrix);
 
       colorTmp.setRGB(
-        baseColors[i * 3],
-        baseColors[i * 3 + 1],
-        baseColors[i * 3 + 2]
+        warmColors[i * 3],
+        warmColors[i * 3 + 1],
+        warmColors[i * 3 + 2]
       );
       mesh.setColorAt(i, colorTmp);
     }
@@ -130,7 +157,7 @@ export default function ParticleSystem({ reducedMotion = false }) {
     mesh.instanceMatrix.needsUpdate = true;
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
     mesh.frustumCulled = false;
-  }, [count, targets, scales, seeds, baseColors, dummy, colorTmp]);
+  }, [count, targets, scales, seeds, warmColors, dummy, colorTmp]);
 
   useFrame(({ clock }) => {
     const mesh = meshRef.current;
@@ -138,8 +165,23 @@ export default function ParticleSystem({ reducedMotion = false }) {
 
     const t = clock.elapsedTime;
     const morph = reducedMotion ? 0 : scrollStore.morph;
+    const morphDelta = Math.abs(morph - lastMorph.current);
+    const isMorphing = morphDelta > 0.00015;
+    lastMorph.current = morph;
 
-    // Shape pair indices + local blend 0→1
+    // Performance: when static, update only every 2nd frame for idle breath
+    frameSkip.current += 1;
+    if (!isMorphing && !reducedMotion && frameSkip.current % 2 === 0) {
+      // still rotate group lightly
+      if (groupRef.current) {
+        groupRef.current.rotation.y = t * 0.035 + morph * 0.3;
+        groupRef.current.rotation.x = Math.sin(t * 0.1) * 0.03;
+        groupRef.current.scale.setScalar(1 + Math.sin(t * 0.45) * 0.012);
+      }
+      return;
+    }
+    if (reducedMotion && !isMorphing) return;
+
     const stateF = Math.min(4.999, Math.max(0, morph));
     const i0 = Math.floor(stateF);
     const i1 = Math.min(5, i0 + 1);
@@ -148,19 +190,20 @@ export default function ParticleSystem({ reducedMotion = false }) {
     const posA = targets[i0];
     const posB = targets[i1];
 
-    // Scatter peaks mid-transition
+    // Stronger mid-transition disintegration
     const mid = 1 - Math.abs(localT - 0.5) * 2;
-    const scatter = mid * (0.08 + localT * 0.12);
-
-    // Always update during active morph or gentle idle drift
-    const morphDelta = Math.abs(morph - lastMorph.current);
-    lastMorph.current = morph;
+    const scatter = mid * mid * (0.14 + localT * 0.18);
 
     for (let i = 0; i < count; i++) {
       const seed = seeds[i];
 
-      // Per-particle lag — some lag behind, some lead
-      const delayed = smoothstep(0, 1, (localT - seed * 0.22) / 0.78);
+      // Stronger per-particle lag — physical rebuild feel
+      const lagWindow = 0.38;
+      const delayed = smoothstep(
+        0,
+        1,
+        (localT - seed * lagWindow) / (1 - lagWindow)
+      );
 
       const ax = posA[i * 3];
       const ay = posA[i * 3 + 1];
@@ -173,39 +216,42 @@ export default function ParticleSystem({ reducedMotion = false }) {
       let y = ay + (by - ay) * delayed;
       let z = az + (bz - az) * delayed;
 
-      // Procedural noise — organic disintegration / rebuild
-      if (!reducedMotion && scatter > 0.01) {
-        const n1 = Math.sin(t * 0.7 + seed * 12.0 + x * 3.0);
-        const n2 = Math.cos(t * 0.55 + seed * 8.0 + y * 4.0);
-        const n3 = Math.sin(t * 0.4 + seed * 15.0 + z * 2.5);
-        x += n1 * scatter * (0.6 + seed);
-        y += n2 * scatter * (0.5 + seed * 0.8);
-        z += n3 * scatter * (0.7 + seed * 0.5);
+      // Richer noise during transition
+      if (!reducedMotion && scatter > 0.008) {
+        const n1 = Math.sin(t * 0.85 + seed * 14.0 + x * 3.5);
+        const n2 = Math.cos(t * 0.65 + seed * 9.0 + y * 4.2);
+        const n3 = Math.sin(t * 0.5 + seed * 17.0 + z * 2.8);
+        const n4 = Math.sin(t * 1.2 + seed * 6.0);
+        const amp = scatter * (0.7 + seed * 0.9);
+        x += (n1 + n4 * 0.4) * amp;
+        y += n2 * amp * 0.85;
+        z += n3 * amp * 0.9;
       }
 
-      // Subtle idle breath when nearly static
-      if (!reducedMotion && morphDelta < 0.0005) {
-        const breath = Math.sin(t * 0.5 + seed * 6) * 0.012;
-        x += breath * (seed - 0.5);
-        y += Math.cos(t * 0.4 + seed * 4) * 0.01;
+      // Idle micro-motion when settled
+      if (!reducedMotion && !isMorphing) {
+        x += Math.sin(t * 0.5 + seed * 6) * 0.01 * (seed - 0.5);
+        y += Math.cos(t * 0.4 + seed * 4) * 0.008;
       }
 
       dummy.position.set(x, y, z);
-      dummy.scale.setScalar(scales[i] * (1 + mid * 0.08 * seed));
+      dummy.scale.setScalar(scales[i] * (1 + mid * 0.12 * seed));
       dummy.rotation.set(
-        t * (0.15 + seed * 0.2) * (0.3 + mid) + seed * 3,
-        t * (0.1 + seed * 0.15) * (0.3 + mid) + seed * 5,
-        seed * Math.PI * 2
+        t * (0.12 + seed * 0.25) * (0.25 + mid * 1.2) + seed * 3,
+        t * (0.08 + seed * 0.18) * (0.25 + mid * 1.1) + seed * 5,
+        seed * Math.PI * 2 + mid * seed
       );
       dummy.updateMatrix();
       mesh.setMatrixAt(i, dummy.matrix);
 
-      // Color shift toward cooler tones as morph advances
-      const cool = morph / 5;
+      // Warm brain → cooler later shapes
+      const coolBlend = smoothstep(0.15, 0.85, morph / 5);
       colorTmp.setRGB(
-        baseColors[i * 3] * (1 - cool * 0.15),
-        baseColors[i * 3 + 1] * (1 - cool * 0.05),
-        Math.min(1, baseColors[i * 3 + 2] + cool * 0.12)
+        warmColors[i * 3] * (1 - coolBlend) + coolColors[i * 3] * coolBlend,
+        warmColors[i * 3 + 1] * (1 - coolBlend) +
+          coolColors[i * 3 + 1] * coolBlend,
+        warmColors[i * 3 + 2] * (1 - coolBlend) +
+          coolColors[i * 3 + 2] * coolBlend
       );
       mesh.setColorAt(i, colorTmp);
     }
@@ -213,11 +259,11 @@ export default function ParticleSystem({ reducedMotion = false }) {
     mesh.instanceMatrix.needsUpdate = true;
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
 
-    // Group rotation + scale tied to morph
     if (groupRef.current && !reducedMotion) {
-      groupRef.current.rotation.y = t * 0.04 + morph * 0.35;
-      groupRef.current.rotation.x = Math.sin(t * 0.1) * 0.03 + morph * 0.04;
-      const breath = 1 + Math.sin(t * 0.5) * 0.015 + mid * 0.04;
+      groupRef.current.rotation.y = t * 0.035 + morph * 0.3;
+      groupRef.current.rotation.x =
+        Math.sin(t * 0.1) * 0.03 + morph * 0.035;
+      const breath = 1 + Math.sin(t * 0.45) * 0.012 + mid * 0.05;
       groupRef.current.scale.setScalar(breath);
     }
   });

@@ -1,22 +1,37 @@
 /**
  * Shared scroll / morph state — updated by ScrollTrigger, read by WebGL each frame.
- * Avoids React re-renders on every scroll tick.
  */
 export const scrollStore = {
-  /** Normalized page scroll 0 → 1 */
   progress: 0,
-  /** Continuous morph position across shape states 0 → 5 */
   morph: 0,
-  /** Current section index (0-based) */
   section: 0,
 };
 
-/** Map global progress → continuous morph value (0…5) */
+/**
+ * Piecewise morph timeline with holds.
+ * 0 brain · 1 distorted · 2 abstract · 3 bulb · 4 scatter · 5 structure
+ */
 export function progressToMorph(p) {
-  // Hold at brain briefly, then move through states
-  const clamped = Math.min(1, Math.max(0, p));
-  // 0–0.08 stay near 0, then spread across remaining range
-  if (clamped < 0.06) return 0;
-  const t = (clamped - 0.06) / 0.94;
-  return t * 5;
+  const x = Math.min(1, Math.max(0, p));
+
+  // 0.00–0.14  hold brain
+  if (x < 0.14) return 0;
+
+  // 0.14–0.28  brain → distorted
+  if (x < 0.28) return ((x - 0.14) / 0.14) * 1;
+
+  // 0.28–0.40  distorted → abstract
+  if (x < 0.40) return 1 + ((x - 0.28) / 0.12) * 1;
+
+  // 0.40–0.52  abstract → bulb
+  if (x < 0.52) return 2 + ((x - 0.40) / 0.12) * 1;
+
+  // 0.52–0.66  HOLD bulb (clear lightbulb reading)
+  if (x < 0.66) return 3;
+
+  // 0.66–0.80  bulb → scatter
+  if (x < 0.80) return 3 + ((x - 0.66) / 0.14) * 1;
+
+  // 0.80–1.00  scatter → structure
+  return 4 + ((x - 0.80) / 0.2) * 1;
 }
