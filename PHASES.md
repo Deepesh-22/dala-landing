@@ -1,8 +1,6 @@
 # Dala Landing — Phases
 
-## Phase 1 ← current — Project foundation
-
-Architecture only. **No final particle visual yet.**
+## Phase 2 ← current — Navigation
 
 ```bash
 git pull
@@ -14,32 +12,19 @@ Open http://localhost:5173
 
 ### Checklist
 
-- [ ] Pure black full-viewport background
-- [ ] Fixed WebGL canvas (`position: fixed`, does not scroll away)
-- [ ] HTML sections scroll above the canvas
-- [ ] Minimal nav (Home / Manifesto / Contact)
-- [ ] Editorial Inter typography (light weight titles)
-- [ ] Lenis smooth scroll (off if `prefers-reduced-motion`)
-- [ ] DPR capped ≤ 1.75
-- [ ] No console errors after `npm install && npm run dev`
+- [ ] Fixed top, transparent (no bar / shadow / glass)
+- [ ] Logo left (dot + “Dala”)
+- [ ] Right links: MANIFESTO · TEAM · BLOG
+- [ ] Purple pill **REQUEST ACCESS** CTA
+- [ ] Hover: link opacity / CTA scale
+- [ ] Nav above WebGL (`z-index: 30`)
+- [ ] Mobile ≤900px: desktop links hidden, minimal 2-line menu button (no drawer)
+- [ ] No console errors
 
-**When all pass → reply: `Phase 1 pass`**
+**When all pass → reply: `Phase 2 pass`**
 
-### Structure
+---
 
-```
-src/
-  components/ Navigation, Hero, WebGL, Sections, UI
-  scenes/     ParticleScene, ParticleSystem, ShapeController, CameraController
-  data/       sections.js
-  hooks/      useScrollProgress, useResponsive
-  styles/     globals.css
-```
+## Phase 1 — Foundation ✅
 
-### Stack
-
-React · Vite · Three · R3F · Drei · GSAP · Lenis · lucide-react
-
-### Legacy
-
-Previous vanilla `src/experience/` kept in repo for reference; App no longer mounts it.
+Black canvas, fixed R3F layer, sections, Lenis, DPR cap.
