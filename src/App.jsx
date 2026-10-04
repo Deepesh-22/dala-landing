@@ -10,30 +10,41 @@ export default function App() {
   const { reducedMotion, isMobile } = useResponsive();
   const [ready, setReady] = useState(false);
 
+  // Always dismiss loader — never leave the page stuck on black
   useEffect(() => {
-    const t = setTimeout(() => setReady(true), 500);
-    return () => clearTimeout(t);
+    const t = setTimeout(() => setReady(true), 400);
+    // Safety: force ready even if something hangs
+    const hard = setTimeout(() => setReady(true), 2000);
+    return () => {
+      clearTimeout(t);
+      clearTimeout(hard);
+    };
   }, []);
 
   useEffect(() => {
     if (reducedMotion) return undefined;
 
-    const lenis = new Lenis({
-      duration: 1.1,
-      smoothWheel: true,
-      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
-    });
-
+    let lenis;
     let rafId = 0;
-    const raf = (time) => {
-      lenis.raf(time);
+    try {
+      lenis = new Lenis({
+        duration: 1.1,
+        smoothWheel: true,
+        easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+      });
+
+      const raf = (time) => {
+        lenis.raf(time);
+        rafId = requestAnimationFrame(raf);
+      };
       rafId = requestAnimationFrame(raf);
-    };
-    rafId = requestAnimationFrame(raf);
+    } catch (err) {
+      console.warn('[Lenis] disabled', err);
+    }
 
     return () => {
       cancelAnimationFrame(rafId);
-      lenis.destroy();
+      lenis?.destroy?.();
     };
   }, [reducedMotion]);
 
@@ -41,7 +52,6 @@ export default function App() {
     <>
       <Loader ready={ready} />
 
-      {/* Pass reducedMotion only for accessibility — not for all mobile */}
       <WebGLCanvas reducedMotion={reducedMotion} isMobile={isMobile} />
 
       <Navigation />
