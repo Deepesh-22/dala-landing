@@ -9,13 +9,24 @@ function getSnapshot() {
       isTablet: false,
       dpr: 1,
       reducedMotion: false,
+      particleBudget: 40000,
     };
   }
 
   const width = window.innerWidth;
   const height = window.innerHeight;
-  const dpr = Math.min(window.devicePixelRatio || 1, 1.75);
+  const rawDpr = window.devicePixelRatio || 1;
+  // Cap DPR: desktop ≤ 1.75, mobile ≤ 1.25
+  const dpr = width < 768 ? Math.min(rawDpr, 1.25) : Math.min(rawDpr, 1.75);
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  let particleBudget = 50000;
+  if (width < 640) particleBudget = 20000;
+  else if (width < 1024) particleBudget = 35000;
+  else if (width < 1440) particleBudget = 50000;
+  else particleBudget = 70000;
+
+  if (reducedMotion) particleBudget = Math.min(particleBudget, 15000);
 
   return {
     width,
@@ -24,12 +35,10 @@ function getSnapshot() {
     isTablet: width >= 768 && width < 1024,
     dpr,
     reducedMotion,
+    particleBudget,
   };
 }
 
-/**
- * Viewport + capability snapshot for layout and WebGL budget.
- */
 export function useResponsive() {
   const [state, setState] = useState(getSnapshot);
 
@@ -50,13 +59,13 @@ export function useResponsive() {
   return state;
 }
 
-/** Safe DPR cap for renderer */
 export function getCappedDpr() {
   if (typeof window === 'undefined') return 1;
-  return Math.min(window.devicePixelRatio || 1, 1.75);
+  const w = window.innerWidth;
+  const raw = window.devicePixelRatio || 1;
+  return w < 768 ? Math.min(raw, 1.25) : Math.min(raw, 1.75);
 }
 
-export function prefersReducedMotion() {
-  if (typeof window === 'undefined') return false;
-  return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+export function getParticleBudget() {
+  return getSnapshot().particleBudget;
 }

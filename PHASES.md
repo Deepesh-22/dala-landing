@@ -1,36 +1,26 @@
-# Dala Landing — Phases
+# Build phases
 
-## Phase 3 ← current — Particle engine
-
-```bash
-git pull
-npm install
-npm run dev
-```
-
-Open http://localhost:5173
-
-### Checklist
-
-- [ ] Thousands of **tiny hollow triangles** (wireframe), not circles
-- [ ] Multicolor palette: white / yellow / purple / blue / cyan / green / magenta
-- [ ] Uneven brightness (density field)
-- [ ] Default form: **brain-like** silhouette
-- [ ] Alive float (subtle motion when idle)
-- [ ] Black background, fixed canvas
-- [ ] Nav still works above WebGL
-- [ ] ~20k–70k particles by device, smooth FPS
-- [ ] No console errors
-
-**When all pass → reply: `Phase 3 pass`**
-
----
+## Phase 1 — Foundation ✅
+- Vite + React + Three + R3F + GSAP + Lenis
+- Full-viewport black site
+- Fixed WebGL canvas (z-index 0)
+- HTML above canvas
+- Smooth scroll, DPR cap, reduced-motion, resize
 
 ## Phase 2 — Navigation ✅
-## Phase 1 — Foundation ✅
+- Fixed minimal nav
+- Logo left / links + purple CTA right
+- Mobile menu button only
 
-### Engine files
+## Phase 3 — Particle engine ✅
+- InstancedMesh wireframe triangles
+- GPU vertex shader breath / float
+- Brain shape (dual hemispheres)
+- Shape generators: brain, sphere, bulb, scatter, abstract
+- Counts: 20k mobile → 70k desktop
+- No per-particle JS in rAF
 
-- `src/scenes/ParticleSystem.jsx` — InstancedMesh + GPU shaders
-- `src/scenes/shapes.js` — sphere / brain / bulb / scatter / abstract
-- `src/scenes/particleShaders.js` — morph + float on GPU
+## Next
+- Phase 4: GPU simulation / morph between shapes
+- Phase 5: mouse interaction
+- Phase 6+: scroll choreography

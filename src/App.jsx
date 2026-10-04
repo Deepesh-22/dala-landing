@@ -7,14 +7,12 @@ import Loader from './components/UI/Loader.jsx';
 import { useResponsive } from './hooks/useResponsive.js';
 
 export default function App() {
-  const { reducedMotion, isMobile } = useResponsive();
+  const { reducedMotion } = useResponsive();
   const [ready, setReady] = useState(false);
 
-  // Always dismiss loader — never leave the page stuck on black
   useEffect(() => {
-    const t = setTimeout(() => setReady(true), 400);
-    // Safety: force ready even if something hangs
-    const hard = setTimeout(() => setReady(true), 2000);
+    const t = setTimeout(() => setReady(true), 600);
+    const hard = setTimeout(() => setReady(true), 2500);
     return () => {
       clearTimeout(t);
       clearTimeout(hard);
@@ -28,18 +26,17 @@ export default function App() {
     let rafId = 0;
     try {
       lenis = new Lenis({
-        duration: 1.1,
+        duration: 1.15,
         smoothWheel: true,
         easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
       });
-
       const raf = (time) => {
         lenis.raf(time);
         rafId = requestAnimationFrame(raf);
       };
       rafId = requestAnimationFrame(raf);
-    } catch (err) {
-      console.warn('[Lenis] disabled', err);
+    } catch (e) {
+      console.warn('[Lenis]', e);
     }
 
     return () => {
@@ -51,11 +48,8 @@ export default function App() {
   return (
     <>
       <Loader ready={ready} />
-
-      <WebGLCanvas reducedMotion={reducedMotion} isMobile={isMobile} />
-
+      <WebGLCanvas reducedMotion={reducedMotion} />
       <Navigation />
-
       <main className="page-root">
         <Sections />
       </main>

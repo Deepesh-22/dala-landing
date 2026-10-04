@@ -16,7 +16,6 @@ export default function Navigation() {
         <span className="nav__logo-text">Dala</span>
       </a>
 
-      {/* Desktop */}
       <nav className="nav__desktop" aria-label="Primary">
         {LINKS.map((link) => (
           <a key={link.href} href={link.href} className="nav__link">
@@ -28,7 +27,6 @@ export default function Navigation() {
         </a>
       </nav>
 
-      {/* Mobile — menu button only, no drawer yet */}
       <button
         type="button"
         className={`nav__menu-btn ${menuOpen ? 'is-open' : ''}`}

@@ -1,30 +1,21 @@
 import { Component } from 'react';
 
-/**
- * Catches R3F / Three.js WebGL init failures so the rest of the app
- * (nav, sections, loader) still renders instead of a blank black page.
- */
 export default class WebGLErrorBoundary extends Component {
   constructor(props) {
     super(props);
-    this.state = { hasError: false, message: '' };
+    this.state = { hasError: false };
   }
 
-  static getDerivedStateFromError(error) {
-    return {
-      hasError: true,
-      message: error?.message || 'WebGL failed',
-    };
+  static getDerivedStateFromError() {
+    return { hasError: true };
   }
 
   componentDidCatch(error) {
-    console.warn('[WebGL] suppressed crash:', error?.message || error);
+    console.warn('[WebGL] crash suppressed:', error?.message || error);
   }
 
   render() {
-    if (this.state.hasError) {
-      return this.props.fallback ?? null;
-    }
+    if (this.state.hasError) return this.props.fallback ?? null;
     return this.props.children;
   }
 }
