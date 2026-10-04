@@ -13,7 +13,8 @@ function noise3(x, y, z) {
     Math.sin(x * 1.7 + y * 2.3 + z * 1.1) * 0.5 +
     Math.sin(x * 3.1 - y * 1.9 + z * 2.7) * 0.25 +
     Math.sin(x * 5.3 + y * 4.1 - z * 3.2) * 0.125 +
-    Math.sin(x * 9.1 + y * 7.3 + z * 6.2) * 0.06
+    Math.sin(x * 9.1 + y * 7.3 + z * 6.2) * 0.06 +
+    Math.sin(x * 17.0 + y * 13.0 + z * 11.0) * 0.03
   );
 }
 
@@ -28,14 +29,13 @@ function fibDir(i, count) {
   };
 }
 
-/** Adaptive count by device */
 export function getParticleCount() {
   if (typeof window === 'undefined') return 40000;
   const w = window.innerWidth;
   const cores = navigator.hardwareConcurrency || 4;
-  if (w < 640 || cores <= 2) return 20000;
-  if (w < 1024 || cores <= 4) return 40000;
-  return 70000;
+  if (w < 640 || cores <= 2) return 22000;
+  if (w < 1024 || cores <= 4) return 45000;
+  return 75000;
 }
 
 export function createSphere(count) {
@@ -66,75 +66,126 @@ export function createScatter(count) {
   return pos;
 }
 
-/** Dual-hemisphere brain-like shell */
+/**
+ * Anatomical brain from a slightly elevated front-3/4 view.
+ * - Wider than tall (cerebral proportions)
+ * - Deep longitudinal fissure (clear left/right split)
+ * - Gyri ridges + sulci grooves via multi-octave noise
+ * - Cerebellum as lower-rear paired lobes
+ * - Thin brainstem taper
+ * Surface shell only (not volume fill) so silhouette reads
+ */
 export function createBrain(count) {
   const pos = new Float32Array(count * 3);
-  const nOuter = Math.floor(count * 0.82);
+  const nCortex = Math.floor(count * 0.78);
+  const nMedial = Math.floor(count * 0.06);
   const nCere = Math.floor(count * 0.12);
-  const nStem = count - nOuter - nCere;
+  const nStem = count - nCortex - nMedial - nCere;
   let idx = 0;
 
-  for (let i = 0; i < nOuter; i++) {
-    const side = i % 2 === 0 ? -1 : 1;
-    let d = fibDir(i, nOuter);
-    if (side < 0) d = { x: -Math.abs(d.x), y: d.y, z: d.z };
-    else d = { x: Math.abs(d.x), y: d.y, z: d.z };
+  // Ellipsoid radii — brain is wider (X) and longer front-back (Z) than tall (Y)
+  const RX = 1.05;
+  const RY = 0.72;
+  const RZ = 1.2;
+  const HEMI_GAP = 0.32; // center-to-center offset per hemisphere
 
-    const ex = 0.7;
-    const ey = 0.58;
-    const ez = 0.92;
-    let ux = d.x;
+  // ── Cortex: two offset ellipsoids, surface shell ──────────────
+  for (let i = 0; i < nCortex; i++) {
+    const side = i % 2 === 0 ? -1 : 1;
+    // Fibonacci on hemisphere (force X toward outer side)
+    let d = fibDir(Math.floor(i / 2), Math.ceil(nCortex / 2));
+    // Prefer outer surface; avoid filling medial gap
+    let ux = Math.abs(d.x) * side;
     let uy = d.y;
     let uz = d.z;
+
+    // Bias samples toward lateral surface so fissure stays open
+    const lat = 0.55 + 0.45 * Math.abs(ux);
+    ux *= lat;
+
     const len = Math.sqrt(ux * ux + uy * uy + uz * uz) || 1;
     ux /= len;
     uy /= len;
     uz /= len;
 
-    const fold =
-      noise3(ux * 3.5, uy * 3.5, uz * 3.5) * 0.07 +
-      noise3(ux * 9, uy * 9, uz * 9) * 0.035 +
-      noise3(ux * 20, uy * 20, uz * 20) * 0.015;
-    const fissure = -0.08 * Math.exp(-(ux * ux) * 20);
-    const r = 1.0 + fold + fissure;
+    // Multi-octave gyri / sulci
+    const g1 = noise3(ux * 4.2, uy * 4.2, uz * 4.2);
+    const g2 = noise3(ux * 11, uy * 11, uz * 11);
+    const g3 = noise3(ux * 24, uy * 24, uz * 24);
+    // Directional ridges (central sulcus-ish bands)
+    const ridge =
+      Math.sin(uy * 9.0 + uz * 3.5) * 0.025 +
+      Math.sin(uz * 7.0 - uy * 2.0) * 0.018;
 
-    pos[idx * 3] = ux * r * ex + side * 0.24;
-    pos[idx * 3 + 1] = uy * r * ey + 0.08;
-    pos[idx * 3 + 2] = uz * r * ez;
+    const fold = g1 * 0.055 + g2 * 0.03 + g3 * 0.015 + ridge;
+
+    // Longitudinal fissure: push away from midline
+    const fissurePush = 0.04 * Math.exp(-ux * ux * 8);
+
+    // Flatten underside slightly (brain sits on tentorium)
+    let yScale = RY;
+    if (uy < -0.2) yScale *= 0.88;
+
+    // Frontal pole slightly taller, occipital flatter
+    const frontBias = 1.0 + uz * 0.06;
+
+    const r = (1.0 + fold) * frontBias;
+
+    pos[idx * 3] = ux * r * RX + side * HEMI_GAP + side * fissurePush;
+    pos[idx * 3 + 1] = uy * r * yScale + 0.12;
+    pos[idx * 3 + 2] = uz * r * RZ;
     idx++;
   }
 
+  // ── Medial walls lining the fissure ──────────────────────────
+  for (let j = 0; j < nMedial; j++) {
+    const side = j % 2 === 0 ? -1 : 1;
+    const t = j / Math.max(nMedial - 1, 1);
+    const elev = (hash(j * 1.7) - 0.5) * 1.1;
+    const depth = (hash(j * 2.9) - 0.5) * 1.6;
+    const wallX = side * (HEMI_GAP * 0.55 + hash(j) * 0.04);
+    pos[idx * 3] = wallX;
+    pos[idx * 3 + 1] = elev * RY * 0.85 + 0.12;
+    pos[idx * 3 + 2] = depth * RZ * 0.75;
+    idx++;
+  }
+
+  // ── Cerebellum: two small lobes under-rear ───────────────────
   for (let j = 0; j < nCere; j++) {
-    const side = hash(j) > 0.5 ? 1 : -1;
+    const side = hash(j * 0.5) > 0.5 ? 1 : -1;
     const a = hash(j * 1.1) * Math.PI * 2;
-    const elev = (hash(j * 2.3) - 0.5) * Math.PI;
-    const folio = Math.sin(elev * 16) * 0.03;
-    const rx = 0.26 + folio;
-    const ry = 0.2;
-    const rz = 0.3;
-    pos[idx * 3] = side * (0.28 + Math.cos(a) * Math.cos(elev) * rx);
-    pos[idx * 3 + 1] = -0.52 + Math.sin(elev) * ry;
-    pos[idx * 3 + 2] = 0.55 + Math.sin(a) * Math.cos(elev) * rz;
+    const elev = (hash(j * 2.3) - 0.55) * Math.PI * 0.85;
+    // Foliation stripes
+    const folio = Math.sin(elev * 18 + a * 2) * 0.022;
+    const rx = 0.28 + folio;
+    const ry = 0.18;
+    const rz = 0.32;
+    pos[idx * 3] =
+      side * (0.22 + Math.cos(a) * Math.cos(elev) * rx);
+    pos[idx * 3 + 1] = -0.48 + Math.sin(elev) * ry;
+    pos[idx * 3 + 2] = 0.72 + Math.sin(a) * Math.cos(elev) * rz;
     idx++;
   }
 
+  // ── Brainstem ────────────────────────────────────────────────
   for (let j = 0; j < nStem && idx < count; j++) {
     const t = j / Math.max(nStem - 1, 1);
     const a = hash(j * 3.1) * Math.PI * 2;
-    const r = 0.1 * (1 - t * 0.5);
+    const r = 0.09 * (1 - t * 0.55);
     pos[idx * 3] = Math.cos(a) * r;
-    pos[idx * 3 + 1] = -0.28 - t * 0.5;
-    pos[idx * 3 + 2] = Math.sin(a) * r * 0.7 + 0.1;
+    pos[idx * 3 + 1] = -0.22 - t * 0.55;
+    pos[idx * 3 + 2] = 0.15 + Math.sin(a) * r * 0.6;
     idx++;
   }
 
   while (idx < count) {
     const d = fibDir(idx, count);
-    pos[idx * 3] = d.x * 0.5;
-    pos[idx * 3 + 1] = d.y * 0.5;
-    pos[idx * 3 + 2] = d.z * 0.5;
+    pos[idx * 3] = d.x * 0.4;
+    pos[idx * 3 + 1] = d.y * 0.3;
+    pos[idx * 3 + 2] = d.z * 0.4;
     idx++;
   }
+
   return pos;
 }
 
