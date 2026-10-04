@@ -1,17 +1,8 @@
-# Dala Landing — Phase gates
+# Dala Landing — Phases
 
-`BUILD_PHASE` in `src/experience/Experience.js` controls what is active.
+## Phase 1 ← current — Project foundation
 
-| Phase | Preview |
-|-------|---------|
-| **1** | Pure black canvas |
-| **2** | Multicolored filled triangles, slow rotate |
-| **3** | Brain silhouette |
-| **4** | Morph physics (auto cycle) |
-| **5** | Ambient + all shapes |
-| **6** ← **current** | Full scroll page |
-
-## Phase 6 checklist
+Architecture only. **No final particle visual yet.**
 
 ```bash
 git pull
@@ -19,34 +10,36 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:5173 and **scroll slowly**.
+Open http://localhost:5173
 
-- [ ] Console: `[Dala] BUILD_PHASE = 6`
-- [ ] Smooth scroll (Lenis)
-- [ ] **Hero** → brain silhouette + “Your mind is the map”
-- [ ] **Manifesto** → particles scatter
-- [ ] **Feature 01** → light bulb
-- [ ] **Feature 02** → globe
-- [ ] **Feature 03** → abstract ribbon
-- [ ] **CTA** → particles gather / tighten
-- [ ] Camera shifts per section
-- [ ] Ambient drift still visible in background
-- [ ] No hard snaps; spring morph throughout
-- [ ] Smooth ~60fps, no console errors
+### Checklist
 
-**When all pass → reply: `Phase 6 pass`**
+- [ ] Pure black full-viewport background
+- [ ] Fixed WebGL canvas (`position: fixed`, does not scroll away)
+- [ ] HTML sections scroll above the canvas
+- [ ] Minimal nav (Home / Manifesto / Contact)
+- [ ] Editorial Inter typography (light weight titles)
+- [ ] Lenis smooth scroll (off if `prefers-reduced-motion`)
+- [ ] DPR capped ≤ 1.75
+- [ ] No console errors after `npm install && npm run dev`
 
-## Scroll story
+**When all pass → reply: `Phase 1 pass`**
+
+### Structure
 
 ```
-HERO        brain
-MANIFESTO   brain → scatter
-FEATURE 01  scatter → bulb
-FEATURE 02  bulb → globe
-FEATURE 03  globe → abstract
-CTA         gather
+src/
+  components/ Navigation, Hero, WebGL, Sections, UI
+  scenes/     ParticleScene, ParticleSystem, ShapeController, CameraController
+  data/       sections.js
+  hooks/      useScrollProgress, useResponsive
+  styles/     globals.css
 ```
 
-## Repo
+### Stack
 
-**Deepesh-22/dala-landing**
+React · Vite · Three · R3F · Drei · GSAP · Lenis · lucide-react
+
+### Legacy
+
+Previous vanilla `src/experience/` kept in repo for reference; App no longer mounts it.
