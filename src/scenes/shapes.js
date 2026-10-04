@@ -57,7 +57,6 @@ export function createScatter(count) {
   return pos;
 }
 
-/** STATE 0 — dual-hemisphere brain */
 export function createBrain(count) {
   const pos = new Float32Array(count * 3);
   const nSurface = Math.floor(count * 0.68);
@@ -183,7 +182,6 @@ export function createBrain(count) {
   return pos;
 }
 
-/** STATE 1 — distorted / dissolving brain */
 export function createDistorted(count) {
   const base = createBrain(count);
   const pos = new Float32Array(count * 3);
@@ -201,7 +199,6 @@ export function createDistorted(count) {
   return pos;
 }
 
-/** STATE 2 — abstract organic */
 export function createAbstract(count) {
   const pos = new Float32Array(count * 3);
   for (let i = 0; i < count; i++) {
@@ -223,43 +220,109 @@ export function createAbstract(count) {
   return pos;
 }
 
-/** STATE 3 — lightbulb */
+/**
+ * STATE 3 — lightbulb silhouette from triangular particles.
+ * Glass head · neck · screw base · subtle outer glow shell
+ */
 export function createBulb(count) {
   const pos = new Float32Array(count * 3);
-  const nGlobe = Math.floor(count * 0.55);
-  const nNeck = Math.floor(count * 0.25);
-  const nBase = count - nGlobe - nNeck;
+
+  const nGlass = Math.floor(count * 0.52);
+  const nInner = Math.floor(count * 0.1);
+  const nNeck = Math.floor(count * 0.14);
+  const nScrew = Math.floor(count * 0.14);
+  const nBase = Math.floor(count * 0.05);
+  const nGlow = count - nGlass - nInner - nNeck - nScrew - nBase;
+
   let idx = 0;
 
-  for (let i = 0; i < nGlobe; i++) {
-    const d = fibDir(i, nGlobe);
-    const r = 0.88 + noise3(d.x * 3, d.y * 3, d.z * 3) * 0.05;
-    pos[idx * 3] = d.x * r;
-    pos[idx * 3 + 1] = d.y * r * 0.95 + 0.5;
-    pos[idx * 3 + 2] = d.z * r;
+  // --- Rounded glass head (upper sphere, slightly elongated) ---
+  for (let i = 0; i < nGlass; i++) {
+    const d = fibDir(i, nGlass);
+    // Bias samples to upper hemisphere more
+    let ly = d.y;
+    if (ly < -0.15) ly = -0.15 + (ly + 0.15) * 0.35;
+
+    const n = noise3(d.x * 4, ly * 4, d.z * 4) * 0.04;
+    const rx = 0.78 + n;
+    const ry = 0.88 + n;
+    const rz = 0.78 + n;
+
+    pos[idx * 3] = d.x * rx;
+    pos[idx * 3 + 1] = ly * ry + 0.55;
+    pos[idx * 3 + 2] = d.z * rz;
     idx++;
   }
-  for (let i = 0; i < nNeck; i++) {
+
+  // --- Inner filament / brighter core ---
+  for (let j = 0; j < nInner && idx < count; j++) {
+    const d = fibDir(j + 7, nInner);
+    const r = 0.22 + hash(j) * 0.2;
+    pos[idx * 3] = d.x * r * 0.55;
+    pos[idx * 3 + 1] = 0.55 + d.y * r * 0.7;
+    pos[idx * 3 + 2] = d.z * r * 0.55;
+    idx++;
+  }
+
+  // --- Narrowing neck ---
+  for (let i = 0; i < nNeck && idx < count; i++) {
     const t = i / Math.max(nNeck - 1, 1);
-    const a = hash(i * 0.7) * Math.PI * 2;
-    const radius = 0.26 * (1 - t * 0.55);
+    const a = hash(i * 0.73) * Math.PI * 2;
+    // Taper from glass bottom to screw
+    const radius = 0.32 * (1 - t * 0.55) + 0.08;
+    const y = 0.12 - t * 0.55;
+    const wobble = noise3(Math.cos(a), y, Math.sin(a)) * 0.02;
+    pos[idx * 3] = Math.cos(a) * (radius + wobble);
+    pos[idx * 3 + 1] = y;
+    pos[idx * 3 + 2] = Math.sin(a) * (radius + wobble);
+    idx++;
+  }
+
+  // --- Screw base (helical ridges) ---
+  for (let i = 0; i < nScrew && idx < count; i++) {
+    const t = i / Math.max(nScrew - 1, 1);
+    const turns = 3.2;
+    const a = t * Math.PI * 2 * turns + hash(i) * 0.4;
+    const radius = 0.28 + Math.sin(t * Math.PI * turns * 2) * 0.035;
+    const y = -0.42 - t * 0.55;
     pos[idx * 3] = Math.cos(a) * radius;
-    pos[idx * 3 + 1] = 0.45 - t * 0.7;
+    pos[idx * 3 + 1] = y;
     pos[idx * 3 + 2] = Math.sin(a) * radius;
     idx++;
   }
+
+  // --- Flat contact tip ---
   for (let i = 0; i < nBase && idx < count; i++) {
-    const a = (i / nBase) * Math.PI * 2;
-    const r = Math.sqrt(hash(i * 0.9)) * 0.36;
+    const a = (i / Math.max(nBase, 1)) * Math.PI * 2;
+    const r = Math.sqrt(hash(i * 1.1)) * 0.18;
     pos[idx * 3] = Math.cos(a) * r;
-    pos[idx * 3 + 1] = -0.2;
+    pos[idx * 3 + 1] = -1.05;
     pos[idx * 3 + 2] = Math.sin(a) * r;
     idx++;
   }
+
+  // --- Soft outer glow shell (sparse, slightly larger than glass) ---
+  for (let j = 0; j < nGlow && idx < count; j++) {
+    const d = fibDir(j + 31, Math.max(nGlow, 1));
+    let ly = d.y;
+    if (ly < -0.2) ly = -0.2 + (ly + 0.2) * 0.3;
+    const R = 1.05 + hash(j * 0.5) * 0.2;
+    pos[idx * 3] = d.x * R * 0.85;
+    pos[idx * 3 + 1] = ly * R * 0.9 + 0.5;
+    pos[idx * 3 + 2] = d.z * R * 0.85;
+    idx++;
+  }
+
+  while (idx < count) {
+    pos[idx * 3] = 0;
+    pos[idx * 3 + 1] = 0;
+    pos[idx * 3 + 2] = 0;
+    idx++;
+  }
+
   return pos;
 }
 
-/** STATE 5 — new organic information structure (network-like) */
 export function createStructure(count) {
   const pos = new Float32Array(count * 3);
   const nodes = 9;
@@ -273,12 +336,11 @@ export function createStructure(count) {
     });
   }
 
-  const perNode = Math.floor(count * 0.35 / nodes);
+  const perNode = Math.floor((count * 0.35) / nodes);
   const nLinks = Math.floor(count * 0.45);
   const nCore = count - perNode * nodes - nLinks;
   let idx = 0;
 
-  // Node clusters
   for (let n = 0; n < nodes; n++) {
     const np = nodePos[n];
     for (let j = 0; j < perNode && idx < count; j++) {
@@ -291,7 +353,6 @@ export function createStructure(count) {
     }
   }
 
-  // Link paths between nodes
   for (let j = 0; j < nLinks && idx < count; j++) {
     const a = nodePos[j % nodes];
     const b = nodePos[(j + 1 + (j % 3)) % nodes];
@@ -303,7 +364,6 @@ export function createStructure(count) {
     idx++;
   }
 
-  // Central core
   for (let j = 0; j < nCore && idx < count; j++) {
     const d = fibDir(j + 50, nCore);
     const r = 0.15 + hash(j) * 0.25;
@@ -346,7 +406,6 @@ export function generateShape(name, count) {
   return fn(count);
 }
 
-/** Precompute all morph targets (same particle count) */
 export function buildMorphTargets(count) {
   return SHAPE_ORDER.map((name) => generateShape(name, count));
 }

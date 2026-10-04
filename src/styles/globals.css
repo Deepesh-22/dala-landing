@@ -1,4 +1,4 @@
-/* Phase 1–8 — foundation through editorial manifesto */
+/* Phase 1–9 */
 
 :root {
   --bg: #000000;
@@ -152,7 +152,7 @@ body {
   pointer-events: auto;
 }
 
-/* ─── Hero ─── */
+/* Hero */
 .hero {
   position: relative;
   min-height: 100vh;
@@ -240,7 +240,7 @@ body {
   min-height: 50vh;
 }
 
-/* ─── Phase 8 Manifesto (poster / editorial) ─── */
+/* Manifesto */
 .manifesto {
   position: relative;
   min-height: 160vh;
@@ -278,6 +278,58 @@ body {
   color: rgba(255, 255, 255, 0.88);
   max-width: 16em;
   line-height: 1.22;
+}
+
+/* Phase 9 — Bulb editorial section */
+.bulb-section {
+  position: relative;
+  min-height: 120vh;
+  display: grid;
+  grid-template-columns: minmax(0, 0.42fr) minmax(0, 0.58fr);
+  align-items: center;
+  padding: 12vh 5vw 12vh 6vw;
+  pointer-events: none;
+}
+
+.bulb-section__copy {
+  position: relative;
+  z-index: 2;
+  max-width: 22rem;
+  will-change: opacity, transform;
+}
+
+.bulb-section__eyebrow {
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--yellow);
+  margin-bottom: 1.5rem;
+}
+
+.bulb-section__title {
+  font-size: clamp(2.6rem, 5.5vw, 4.5rem);
+  font-weight: 300;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  color: var(--text);
+  margin-bottom: 1.5rem;
+}
+
+.bulb-section__title-line {
+  display: block;
+}
+
+.bulb-section__body {
+  font-size: clamp(0.95rem, 1.3vw, 1.1rem);
+  line-height: 1.65;
+  color: var(--text-secondary);
+  max-width: 18rem;
+}
+
+.bulb-section__visual {
+  pointer-events: none;
+  min-height: 40vh;
 }
 
 /* Other sections */
@@ -478,7 +530,8 @@ body {
   .webgl-fallback__glow {
     animation: none;
   }
-  .manifesto__statement {
+  .manifesto__statement,
+  .bulb-section__copy {
     opacity: 1 !important;
     transform: none !important;
   }
@@ -526,6 +579,16 @@ body {
 
   .manifesto__statement--secondary {
     font-size: clamp(1.15rem, 4.2vw, 1.55rem);
+  }
+
+  .bulb-section {
+    grid-template-columns: 1fr;
+    min-height: 100vh;
+    padding: 14vh 6vw;
+  }
+
+  .bulb-section__visual {
+    display: none;
   }
 
   .section {
