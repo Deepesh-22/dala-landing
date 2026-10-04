@@ -7,35 +7,21 @@ import {
 } from './particleShaders.js';
 import { generateShape, getParticleCount } from './shapes.js';
 
-/** Outer rim golds → mid magentas/purples → cool core */
-const RIM = [
+/** Previous multicolor palette (white / yellow / purple / blue / cyan / green / magenta) */
+const PALETTE = [
+  new THREE.Color('#ffffff'),
   new THREE.Color('#f5d76e'),
-  new THREE.Color('#f0c75e'),
-  new THREE.Color('#e8b84a'),
-  new THREE.Color('#ffeaa7'),
-];
-const MID = [
-  new THREE.Color('#e84393'),
   new THREE.Color('#c39bd3'),
   new THREE.Color('#9b59b6'),
-  new THREE.Color('#a55eea'),
-  new THREE.Color('#fd79a8'),
-];
-const CORE = [
-  new THREE.Color('#6c5ce7'),
-  new THREE.Color('#5dade2'),
+  new THREE.Color('#3498db'),
   new THREE.Color('#1abc9c'),
-  new THREE.Color('#74b9ff'),
-  new THREE.Color('#a29bfe'),
+  new THREE.Color('#2ecc71'),
+  new THREE.Color('#e84393'),
 ];
 
 function hash01(i) {
   const x = Math.sin(i * 12.9898 + 78.233) * 43758.5453;
   return x - Math.floor(x);
-}
-
-function pick(arr, t) {
-  return arr[Math.floor(t * arr.length) % arr.length];
 }
 
 export default function ParticleSystem({
@@ -98,40 +84,22 @@ export default function ParticleSystem({
     aPosA.set(posA);
     aPosB.set(posB);
 
-    // Approximate radial extent for rim/core mapping
-    let maxR = 0.001;
-    for (let i = 0; i < count; i++) {
-      const x = posA[i * 3];
-      const y = posA[i * 3 + 1];
-      const z = posA[i * 3 + 2];
-      maxR = Math.max(maxR, Math.sqrt(x * x + y * y + z * z));
-    }
-
     for (let i = 0; i < count; i++) {
       const seed = hash01(i);
       aSeed[i] = seed;
       aOffset[i] = hash01(i + 17) * Math.PI * 2;
 
-      // Reference: small but visible hollow triangles
-      aScale[i] = 0.0055 + seed * 0.008;
+      aScale[i] = 0.005 + seed * 0.0075;
 
+      // Spatial color regions (not radial gold-rim) — previous look
       const x = posA[i * 3];
       const y = posA[i * 3 + 1];
       const z = posA[i * 3 + 2];
-      const r = Math.sqrt(x * x + y * y + z * z) / maxR;
-
-      // Rim = gold, mid = magenta/purple, core = cool blue/violet
-      let col;
-      if (r > 0.72) {
-        col = pick(RIM, seed).clone();
-      } else if (r > 0.4) {
-        col = pick(MID, seed).clone();
-      } else {
-        col = pick(CORE, seed).clone();
-      }
-
-      // Slight dimming variance
-      const dim = 0.65 + hash01(i + 99) * 0.35;
+      const region =
+        (Math.abs(x) * 1.2 + (y + 0.5) * 0.55 + (z + 0.5) * 0.45 + seed) * 0.55;
+      const band = Math.floor(region * PALETTE.length) % PALETTE.length;
+      const col = PALETTE[band].clone();
+      const dim = 0.55 + hash01(i + 99) * 0.45;
       col.multiplyScalar(dim);
 
       aColor[i * 3] = col.r;
