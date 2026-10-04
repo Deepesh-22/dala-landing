@@ -36,6 +36,10 @@ export default function App() {
       title: 'Brain shape',
       body: 'Particles form a clear brain silhouette.',
     },
+    4: {
+      title: 'Morph physics',
+      body: 'Spring + damping morph. Watch brain dissolve into scatter, then reform as bulb, globe, abstract — and loop. No snap, mid-morph turbulence.',
+    },
   };
 
   const copy = phaseCopy[BUILD_PHASE] || phaseCopy[2];
