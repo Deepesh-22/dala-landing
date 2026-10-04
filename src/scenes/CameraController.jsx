@@ -2,15 +2,14 @@ import { useThree } from '@react-three/fiber';
 import { useEffect } from 'react';
 
 /**
- * Phase 1: set a stable default camera.
- * Later: scroll-driven camera states.
+ * Elevated front-3/4 view so longitudinal fissure and lobes read clearly.
  */
 export default function CameraController() {
   const { camera } = useThree();
 
   useEffect(() => {
-    camera.position.set(0, 0.2, 4);
-    camera.lookAt(0, 0, 0);
+    camera.position.set(0.35, 0.45, 3.4);
+    camera.lookAt(0, 0.05, 0.15);
     camera.updateProjectionMatrix();
   }, [camera]);
 
