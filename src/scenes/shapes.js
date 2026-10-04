@@ -1,6 +1,6 @@
 /**
  * Procedural particle positions.
- * Brain = realistic lateral silhouette (cerebrum + cerebellum + brainstem).
+ * Brain = dual cerebral hemispheres + longitudinal fissure + gyri/sulci + cerebellum + stem.
  */
 
 function hash(n) {
@@ -14,7 +14,8 @@ function noise3(x, y, z) {
     Math.sin(x * 3.1 - y * 1.9 + z * 2.7) * 0.25 +
     Math.sin(x * 5.3 + y * 4.1 - z * 3.2) * 0.125 +
     Math.sin(x * 9.1 + y * 7.3 + z * 6.2) * 0.06 +
-    Math.sin(x * 17.0 + y * 13.0 + z * 11.0) * 0.03
+    Math.sin(x * 17.0 + y * 13.0 + z * 11.0) * 0.03 +
+    Math.sin(x * 31.0 - y * 23.0 + z * 19.0) * 0.015
   );
 }
 
@@ -29,13 +30,18 @@ function fibDir(i, count) {
   };
 }
 
+/** Soft clamp */
+function clamp(v, a, b) {
+  return Math.max(a, Math.min(b, v));
+}
+
 export function getParticleCount() {
-  if (typeof window === 'undefined') return 45000;
+  if (typeof window === 'undefined') return 50000;
   const w = window.innerWidth;
   const cores = navigator.hardwareConcurrency || 4;
-  if (w < 640 || cores <= 2) return 25000;
-  if (w < 1024 || cores <= 4) return 50000;
-  return 80000;
+  if (w < 640 || cores <= 2) return 28000;
+  if (w < 1024 || cores <= 4) return 55000;
+  return 85000;
 }
 
 export function createSphere(count) {
@@ -67,130 +73,177 @@ export function createScatter(count) {
 }
 
 /**
- * Anatomical lateral brain (matches typical medical side view):
- *   +X = posterior (occipital / back)
- *   -X = anterior (frontal / front)
- *   +Y = superior (top)
- *   -Y = inferior
- *   Z  = thickness
+ * Dual-hemisphere human brain silhouette.
  *
- * Parts: cerebrum (gyri), temporal bulge, cerebellum, brainstem.
+ * Axes (viewer looking slightly from above-front):
+ *   X = left (−) / right (+)
+ *   Y = inferior (−) / superior (+)
+ *   Z = posterior (−) / anterior (+)   [frontal poles toward +Z]
+ *
+ * Structure:
+ *   1. Two offset ellipsoids (left & right cerebrum)
+ *   2. Deep longitudinal fissure (empty midline gap)
+ *   3. Dense multi-octave gyri + directional sulci
+ *   4. Rounded frontal poles, narrower occipital
+ *   5. Cerebellum under rear
+ *   6. Brainstem taper
+ *   7. Mild left/right asymmetry
  */
 export function createBrain(count) {
   const pos = new Float32Array(count * 3);
-  const nCortex = Math.floor(count * 0.68);
-  const nTemporal = Math.floor(count * 0.08);
-  const nCere = Math.floor(count * 0.14);
-  const nStem = Math.floor(count * 0.07);
-  const nInner = count - nCortex - nTemporal - nCere - nStem;
+
+  const nCortex = Math.floor(count * 0.74);
+  const nMedial = Math.floor(count * 0.05);
+  const nCere = Math.floor(count * 0.12);
+  const nStem = Math.floor(count * 0.06);
+  const nFill = count - nCortex - nMedial - nCere - nStem;
   let idx = 0;
 
-  // ── Cerebrum — deformed ellipsoid with deep gyri ─────────────
+  // Hemisphere centers offset from midline
+  const HEMI_X = 0.38;
+  // Base ellipsoid radii per hemisphere (elongated front-back)
+  const RX = 0.72; // width of one hemisphere
+  const RY = 0.68; // height
+  const RZ = 1.05; // front-back length
+
+  // ── 1. Cortical surface — left & right hemispheres ───────────
   for (let i = 0; i < nCortex; i++) {
-    const d = fibDir(i, nCortex);
-    let ux = d.x;
-    let uy = d.y;
-    let uz = d.z;
+    const side = i % 2 === 0 ? -1 : 1; // left / right
+    const hemiIndex = Math.floor(i / 2);
+    const hemiCount = Math.ceil(nCortex / 2);
 
-    // Base radii: longer front-back, shorter height
-    let rx = 1.2;
-    let ry = 0.78;
-    let rz = 0.72;
+    // Unit direction on sphere, then force lateral bias so midline stays open
+    let d = fibDir(hemiIndex, hemiCount);
 
-    // Frontal pole (−X): project forward, slightly lower
-    if (ux < 0) {
+    // Map to hemisphere local coords: push X outward from midline
+    let lx = Math.abs(d.x) * 0.55 + 0.45; // always toward outer (0.45–1)
+    let ly = d.y;
+    let lz = d.z;
+
+    // Mild asymmetry between hemispheres
+    const asym = side < 0 ? 0.97 : 1.03;
+    const asymY = side < 0 ? 1.02 : 0.98;
+
+    // Normalize local direction
+    let len = Math.sqrt(lx * lx + ly * ly + lz * lz) || 1;
+    lx /= len;
+    ly /= len;
+    lz /= len;
+
+    // Proportions: wider superior, narrower occipital (lz < 0 = back)
+    let rx = RX * asym;
+    let ry = RY * asymY;
+    let rz = RZ;
+
+    // Frontal poles (+Z): more rounded, slightly lower
+    if (lz > 0.25) {
+      rz *= 1.06;
+      ry *= 0.96;
+      ly -= 0.04 * lz;
+    }
+
+    // Occipital (−Z): slightly narrower and tapered
+    if (lz < -0.2) {
+      rx *= 0.88;
+      rz *= 0.92;
+    }
+
+    // Superior wider / fuller crown
+    if (ly > 0.2) {
       rx *= 1.08;
-      uy -= 0.06 * Math.abs(ux);
+      ry *= 1.05;
     }
 
-    // Occipital (+X): rounded back, slightly higher crown transition
-    if (ux > 0.2) {
-      rx *= 0.95;
-      ry *= 1.02;
+    // Flatten inferior surface (sits above cerebellum)
+    if (ly < -0.15) {
+      ry *= 0.72;
+      if (lz < 0) ly *= 0.85; // rear underside carve
     }
 
-    // Flatten underside of cerebrum (room for cerebellum)
-    if (uy < -0.15) {
-      ry *= 0.7;
-      // Carve rear underside so cerebellum sits cleanly
-      if (ux > 0.1) uy *= 0.75;
-    }
+    // ── Dense gyri & sulci ────────────────────────────────────
+    // Multi-octave organic folds
+    const g1 = noise3(lx * 6 + side, ly * 6, lz * 6);
+    const g2 = noise3(lx * 14, ly * 14 + side * 2, lz * 14);
+    const g3 = noise3(lx * 28, ly * 28, lz * 28 + side);
+    const g4 = noise3(lx * 48, ly * 48, lz * 48);
 
-    // Crown dome
-    if (uy > 0.3) {
-      ry *= 1.06;
-    }
+    // Directional sulci following cortical surface (curved grooves)
+    // Central-sulcus-like band roughly coronal
+    const sulcus1 = Math.sin(lz * 9.0 + ly * 5.0) * 0.022;
+    // Longitudinal-ish secondary folds
+    const sulcus2 = Math.sin(ly * 18.0 - lz * 7.0 + lx * 3.0) * 0.018;
+    // Fine tertiary grooves
+    const sulcus3 = Math.sin(lz * 22.0 + ly * 14.0 + lx * 8.0) * 0.01;
 
-    // Deep gyri / sulci — stronger than before
-    const g1 = noise3(ux * 5.5, uy * 5.5, uz * 5.5);
-    const g2 = noise3(ux * 14, uy * 14, uz * 14);
-    const g3 = noise3(ux * 32, uy * 32, uz * 32);
-    // Parallel ridge bands (like sulci running roughly front-back)
-    const ridges =
-      Math.sin(uy * 16 + ux * 4) * 0.028 +
-      Math.sin(uy * 28 - ux * 6) * 0.015 +
-      Math.sin(ux * 12 + uy * 8) * 0.012;
+    const fold =
+      g1 * 0.05 + g2 * 0.032 + g3 * 0.018 + g4 * 0.01 + sulcus1 + sulcus2 + sulcus3;
 
-    const fold = g1 * 0.06 + g2 * 0.035 + g3 * 0.018 + ridges;
-
-    // Surface shell only
-    const shell = 0.88 + hash(i * 0.9) * 0.12;
+    // Surface shell (not volume fill) — keeps silhouette crisp
+    const shell = 0.9 + hash(i * 1.3) * 0.1;
     const r = (1.0 + fold) * shell;
 
-    pos[idx * 3] = ux * r * rx;
-    pos[idx * 3 + 1] = uy * r * ry + 0.22;
-    pos[idx * 3 + 2] = uz * r * rz;
+    // World position: offset hemisphere from midline + small fissure gap
+    const fissureGap = 0.06; // extra push away from X=0
+    const worldX = side * (HEMI_X + fissureGap * (1 - Math.abs(lx))) + side * lx * r * rx;
+    const worldY = ly * r * ry + 0.15;
+    const worldZ = lz * r * rz;
+
+    pos[idx * 3] = worldX;
+    pos[idx * 3 + 1] = worldY;
+    pos[idx * 3 + 2] = worldZ;
     idx++;
   }
 
-  // ── Temporal lobe — lower anterior bulge ─────────────────────
-  for (let j = 0; j < nTemporal; j++) {
-    const d = fibDir(j, nTemporal);
-    const rx = 0.42;
-    const ry = 0.32;
-    const rz = 0.38;
-    pos[idx * 3] = -0.55 + d.x * rx;
-    pos[idx * 3 + 1] = -0.15 + d.y * ry;
-    pos[idx * 3 + 2] = 0.35 + d.z * rz * 0.8; // slightly lateral
+  // ── 2. Medial walls lining the longitudinal fissure ──────────
+  for (let j = 0; j < nMedial; j++) {
+    const side = j % 2 === 0 ? -1 : 1;
+    const elev = (hash(j * 1.9) - 0.45) * 1.15;
+    const depth = (hash(j * 2.7) - 0.5) * 1.7;
+    // Thin sheet just off midline
+    const x = side * (0.07 + hash(j) * 0.05);
+    pos[idx * 3] = x;
+    pos[idx * 3 + 1] = elev * RY * 0.9 + 0.12;
+    pos[idx * 3 + 2] = depth * RZ * 0.72;
     idx++;
   }
 
-  // ── Cerebellum — rear-inferior, striated folia ───────────────
+  // ── 3. Cerebellum — paired lobes under posterior ─────────────
   for (let j = 0; j < nCere; j++) {
+    const side = hash(j * 0.61) > 0.5 ? 1 : -1;
     const d = fibDir(j, nCere);
-    // Strong horizontal foliation
-    const folio = Math.sin(d.y * 28 + d.x * 6) * 0.035;
-    const rx = 0.36 + folio;
-    const ry = 0.28;
-    const rz = 0.4;
+    // Horizontal foliation stripes
+    const folio = Math.sin(d.y * 26 + d.z * 8) * 0.03;
+    const rx = 0.3 + folio;
+    const ry = 0.24;
+    const rz = 0.34;
 
-    pos[idx * 3] = 0.62 + d.x * rx * 0.85; // posterior
-    pos[idx * 3 + 1] = -0.48 + d.y * ry;
-    pos[idx * 3 + 2] = d.z * rz;
+    pos[idx * 3] = side * (0.28 + Math.abs(d.x) * rx);
+    pos[idx * 3 + 1] = -0.52 + d.y * ry;
+    pos[idx * 3 + 2] = -0.55 + d.z * rz; // posterior
     idx++;
   }
 
-  // ── Brainstem — drops from mid-rear under cerebellum ─────────
+  // ── 4. Brainstem ─────────────────────────────────────────────
   for (let j = 0; j < nStem; j++) {
     const t = j / Math.max(nStem - 1, 1);
-    const a = hash(j * 3.7) * Math.PI * 2;
-    // Tapers slightly as it goes down
-    const r = 0.1 * (1 - t * 0.35);
-    const wobble = (hash(j * 1.2) - 0.5) * 0.04;
+    const a = hash(j * 4.1) * Math.PI * 2;
+    const r = 0.1 * (1 - t * 0.4);
+    const wobble = (hash(j * 1.5) - 0.5) * 0.035;
 
-    pos[idx * 3] = 0.2 + wobble + Math.sin(a) * r * 0.4;
-    pos[idx * 3 + 1] = -0.35 - t * 0.7;
-    pos[idx * 3 + 2] = Math.cos(a) * r;
+    pos[idx * 3] = Math.cos(a) * r + wobble;
+    pos[idx * 3 + 1] = -0.28 - t * 0.65;
+    pos[idx * 3 + 2] = -0.15 + Math.sin(a) * r * 0.5;
     idx++;
   }
 
-  // ── Sparse inner volume ──────────────────────────────────────
-  for (let j = 0; j < nInner && idx < count; j++) {
-    const d = fibDir(j + 50, nInner);
-    const r = 0.25 + hash(j) * 0.4;
-    pos[idx * 3] = d.x * r * 0.85;
-    pos[idx * 3 + 1] = d.y * r * 0.55 + 0.15;
-    pos[idx * 3 + 2] = d.z * r * 0.5;
+  // ── 5. Sparse deep fill (keeps density continuous) ───────────
+  for (let j = 0; j < nFill && idx < count; j++) {
+    const side = j % 2 === 0 ? -1 : 1;
+    const d = fibDir(j + 31, nFill);
+    const r = 0.2 + hash(j) * 0.45;
+    pos[idx * 3] = side * (HEMI_X * 0.5 + Math.abs(d.x) * r * RX * 0.7);
+    pos[idx * 3 + 1] = d.y * r * RY * 0.55 + 0.12;
+    pos[idx * 3 + 2] = d.z * r * RZ * 0.65;
     idx++;
   }
 
