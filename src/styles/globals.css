@@ -1,4 +1,4 @@
-/* Phase 1–9 */
+/* Phase 1–11 — foundation through typographic motion */
 
 :root {
   --bg: #000000;
@@ -152,13 +152,13 @@ body {
   pointer-events: auto;
 }
 
-/* Hero */
+/* ── Phase 11: Hero typography ─────────────────────────────── */
 .hero {
   position: relative;
   min-height: 100vh;
   min-height: 100dvh;
   display: grid;
-  grid-template-columns: minmax(0, 0.45fr) minmax(0, 0.55fr);
+  grid-template-columns: minmax(0, 0.42fr) minmax(0, 0.58fr);
   align-items: center;
   padding: 8vh 5vw 8vh 6vw;
   pointer-events: none;
@@ -167,7 +167,7 @@ body {
 .hero__copy {
   position: relative;
   z-index: 2;
-  max-width: 22rem;
+  max-width: 24rem;
   width: 100%;
   pointer-events: none;
 }
@@ -184,19 +184,22 @@ body {
   color: var(--yellow);
   margin-bottom: 1.75rem;
   line-height: 1.4;
+  will-change: opacity, transform;
 }
 
+/* Large editorial heading — weight ~400, tight leading, clamp */
 .hero__title {
-  font-size: clamp(3rem, 7.2vw, 5.75rem);
-  font-weight: 300;
-  line-height: 1.02;
-  letter-spacing: -0.035em;
+  font-size: clamp(4rem, 7vw, 8rem);
+  font-weight: 400;
+  line-height: 0.98;
+  letter-spacing: -0.04em;
   color: var(--text);
   margin-bottom: 1.75rem;
 }
 
 .hero__title-line {
   display: block;
+  will-change: opacity, transform;
 }
 
 .hero__body {
@@ -206,6 +209,7 @@ body {
   color: var(--text-secondary);
   max-width: 18rem;
   margin-bottom: 2.25rem;
+  will-change: opacity, transform;
 }
 
 .hero__cta {
@@ -223,15 +227,16 @@ body {
   border-radius: 999px;
   border: none;
   cursor: pointer;
+  will-change: opacity, transform;
   transition:
-    transform 0.3s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
     background 0.3s ease,
     filter 0.3s ease;
 }
 
 .hero__cta:hover {
   background: var(--purple-hover);
-  transform: scale(1.05);
+  transform: scale(1.04);
   filter: brightness(1.08);
 }
 
@@ -240,7 +245,7 @@ body {
   min-height: 50vh;
 }
 
-/* Manifesto */
+/* ── Manifesto ─────────────────────────────────────────────── */
 .manifesto {
   position: relative;
   min-height: 160vh;
@@ -264,8 +269,8 @@ body {
 
 .manifesto__statement {
   font-size: clamp(1.65rem, 3.8vw, 3.25rem);
-  font-weight: 300;
-  line-height: 1.18;
+  font-weight: 400;
+  line-height: 1.16;
   letter-spacing: -0.028em;
   color: var(--text);
   max-width: 18em;
@@ -275,12 +280,13 @@ body {
 
 .manifesto__statement--secondary {
   font-size: clamp(1.35rem, 2.8vw, 2.35rem);
+  font-weight: 400;
   color: rgba(255, 255, 255, 0.88);
   max-width: 16em;
-  line-height: 1.22;
+  line-height: 1.2;
 }
 
-/* Phase 9 — Bulb editorial section */
+/* ── Bulb section ──────────────────────────────────────────── */
 .bulb-section {
   position: relative;
   min-height: 120vh;
@@ -295,7 +301,6 @@ body {
   position: relative;
   z-index: 2;
   max-width: 22rem;
-  will-change: opacity, transform;
 }
 
 .bulb-section__eyebrow {
@@ -305,26 +310,30 @@ body {
   text-transform: uppercase;
   color: var(--yellow);
   margin-bottom: 1.5rem;
+  will-change: opacity, transform;
 }
 
 .bulb-section__title {
-  font-size: clamp(2.6rem, 5.5vw, 4.5rem);
-  font-weight: 300;
-  line-height: 1.05;
-  letter-spacing: -0.03em;
+  font-size: clamp(2.75rem, 5.5vw, 4.75rem);
+  font-weight: 400;
+  line-height: 1.02;
+  letter-spacing: -0.035em;
   color: var(--text);
   margin-bottom: 1.5rem;
 }
 
 .bulb-section__title-line {
   display: block;
+  will-change: opacity, transform;
 }
 
 .bulb-section__body {
   font-size: clamp(0.95rem, 1.3vw, 1.1rem);
+  font-weight: 400;
   line-height: 1.65;
   color: var(--text-secondary);
   max-width: 18rem;
+  will-change: opacity, transform;
 }
 
 .bulb-section__visual {
@@ -332,7 +341,7 @@ body {
   min-height: 40vh;
 }
 
-/* Other sections */
+/* ── Generic sections ──────────────────────────────────────── */
 .section {
   min-height: 100vh;
   min-height: 100dvh;
@@ -351,15 +360,17 @@ body {
   text-transform: uppercase;
   color: var(--text-muted);
   margin-bottom: 1.25rem;
+  will-change: opacity, transform;
 }
 
 .section__title {
-  font-size: clamp(2.5rem, 6.5vw, 4.75rem);
-  font-weight: 300;
-  line-height: 1.08;
-  letter-spacing: -0.03em;
+  font-size: clamp(2.75rem, 6.5vw, 5rem);
+  font-weight: 400;
+  line-height: 1.05;
+  letter-spacing: -0.035em;
   color: var(--text);
   margin-bottom: 1.5rem;
+  will-change: opacity, transform;
 }
 
 .section__body {
@@ -368,9 +379,10 @@ body {
   line-height: 1.7;
   color: var(--text-secondary);
   max-width: 32em;
+  will-change: opacity, transform;
 }
 
-/* Navigation */
+/* ── Navigation ────────────────────────────────────────────── */
 .nav {
   position: fixed;
   top: 0;
@@ -454,7 +466,7 @@ body {
   border-radius: 999px;
   border: none;
   cursor: pointer;
-  transition: transform 0.25s ease, background 0.25s ease;
+  transition: transform 0.3s ease, background 0.25s ease;
 }
 
 .nav__cta:hover {
@@ -530,8 +542,10 @@ body {
   .webgl-fallback__glow {
     animation: none;
   }
+  .hero__anim,
   .manifesto__statement,
-  .bulb-section__copy {
+  .bulb-section__anim,
+  .section__anim {
     opacity: 1 !important;
     transform: none !important;
   }
@@ -561,7 +575,7 @@ body {
   }
 
   .hero__title {
-    font-size: clamp(2.75rem, 12vw, 4rem);
+    font-size: clamp(2.85rem, 11vw, 4.5rem);
   }
 
   .hero__visual {
