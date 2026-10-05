@@ -24,7 +24,7 @@ function smoothstep(e0, e1, x) {
 }
 
 /**
- * Phase 15–16 optimized particles + subtle velocity / proximity reaction.
+ * Discrete filled triangles — reference fidelity.
  */
 export default function ParticleSystem({ reducedMotion = false }) {
   const meshRef = useRef(null);
@@ -40,26 +40,27 @@ export default function ParticleSystem({ reducedMotion = false }) {
   const colorTmp = useRef(new THREE.Color()).current;
 
   const profile = useMemo(() => getDeviceProfile(), []);
-  const triangleScale = profile.triangleScale ?? 1;
+  const triangleScale = profile.triangleScale ?? 1.35;
   const enableGlowBase = profile.enableGlow && !reducedMotion;
 
   const maxCount = useMemo(() => {
     try {
       const budget = getParticleBudget();
       if (profile.isMobile) return Math.min(budget, 20000);
-      if (profile.isTablet) return Math.min(budget, 50000);
-      return Math.min(budget, 100000);
+      if (profile.isTablet) return Math.min(budget, 45000);
+      return Math.min(budget, 75000);
     } catch {
-      return profile.isMobile ? 12000 : 28000;
+      return profile.isMobile ? 12000 : 50000;
     }
   }, [profile]);
 
   const glowMax = useMemo(() => {
     if (!enableGlowBase) return 0;
-    return Math.min(Math.floor(maxCount * 0.1), 2800);
+    // Sparse glow only — avoids white blowout
+    return Math.min(Math.floor(maxCount * 0.04), 1800);
   }, [maxCount, enableGlowBase]);
 
-  const idleSkip = profile.isMobile ? 5 : 3;
+  const idleSkip = profile.isMobile ? 4 : 2;
 
   const { targets, scales, seeds, brainColors, morphColors, glows, glowIndices } =
     useMemo(() => {
@@ -69,17 +70,18 @@ export default function ParticleSystem({ reducedMotion = false }) {
       const brain = targets[0];
 
       const brainBuf = buildColorBuffers(brain, maxCount);
-      const morphSrc = targets[2] || targets[1] || brain;
+      const morphSrc = targets[3] || targets[2] || brain; // bulb colors for later
       const morphBuf = buildColorBuffers(morphSrc, maxCount);
 
       for (let i = 0; i < maxCount; i++) {
         seeds[i] = hash01(i);
-        scales[i] = (0.016 + seeds[i] * 0.02) * triangleScale;
+        // Larger base scale so filled triangles read as geometry
+        scales[i] = (0.028 + seeds[i] * 0.032) * triangleScale;
       }
 
       const ranked = [];
       for (let i = 0; i < maxCount; i++) {
-        if (brainBuf.glows[i] > 0.2) ranked.push(i);
+        if (brainBuf.glows[i] > 0.25) ranked.push(i);
       }
       ranked.sort((a, b) => brainBuf.glows[b] - brainBuf.glows[a]);
       const glowIndices = enableGlowBase ? ranked.slice(0, glowMax) : [];
@@ -97,13 +99,17 @@ export default function ParticleSystem({ reducedMotion = false }) {
 
   const geometry = useMemo(() => getTriangleGeometry(), []);
   const material = useMemo(
-    () => createParticleBasicMaterial({ opacity: 0.88 }),
+    () => createParticleBasicMaterial({ opacity: 0.9, wireframe: false }),
     []
   );
   const glowMaterial = useMemo(
     () =>
       enableGlowBase
-        ? createParticleBasicMaterial({ opacity: 0.14, additive: true })
+        ? createParticleBasicMaterial({
+            opacity: 0.12,
+            additive: true,
+            wireframe: false,
+          })
         : null,
     [enableGlowBase]
   );
@@ -127,8 +133,9 @@ export default function ParticleSystem({ reducedMotion = false }) {
     for (let i = 0; i < maxCount; i++) {
       dummy.position.set(pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2]);
       dummy.scale.setScalar(scales[i]);
+      // Random orientation so faces catch light differently
       dummy.rotation.set(
-        seeds[i] * 1.1,
+        seeds[i] * Math.PI * 2,
         hash01(i + 2) * Math.PI * 2,
         hash01(i + 3) * Math.PI * 2
       );
@@ -152,7 +159,7 @@ export default function ParticleSystem({ reducedMotion = false }) {
       for (let g = 0; g < glowIndices.length; g++) {
         const i = glowIndices[g];
         dummy.position.set(pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2]);
-        dummy.scale.setScalar(scales[i] * (2.2 + glows[i] * 1.4));
+        dummy.scale.setScalar(scales[i] * (1.8 + glows[i]));
         dummy.rotation.set(seeds[i], hash01(i + 5), hash01(i + 7));
         dummy.updateMatrix();
         glowMesh.setMatrixAt(g, dummy.matrix);
@@ -198,34 +205,26 @@ export default function ParticleSystem({ reducedMotion = false }) {
     }
     const n = liveCount.current;
 
-    // Scroll velocity: slightly stronger noise / scatter, then settle
     const vel = reducedMotion ? 0 : interaction.scrollVelocity;
-    const noiseAmp = isMorphing || reducedMotion ? 0 : 0.005 + vel * 0.012;
+    const noiseAmp = isMorphing || reducedMotion ? 0 : 0.003 + vel * 0.008;
     tickMaterialTime(material, t, noiseAmp);
-    if (glowMaterial) tickMaterialTime(glowMaterial, t, noiseAmp * 0.5);
+    if (glowMaterial) tickMaterialTime(glowMaterial, t, noiseAmp * 0.4);
 
     if (mesh.material) {
-      mesh.material.opacity = 0.82 * s.colorIntensity;
+      mesh.material.opacity = 0.88 * s.colorIntensity;
     }
-
-    // Pointer proximity bias — nudge noise amp when pointer is active
-    // (actual displacement stays in ParticleScene parallax for cohesion)
 
     if (!isMorphing) {
       frameSkip.current += 1;
       if (!reducedMotion && groupRef.current) {
-        // Base spin + tiny velocity boost
-        const rotBoost = 1 + vel * 0.35;
-        groupRef.current.rotation.y = t * s.rotation * rotBoost;
-        groupRef.current.rotation.x = Math.sin(t * 0.1) * 0.025;
-        groupRef.current.scale.setScalar(
-          1 + Math.sin(t * 0.35) * 0.006 + vel * 0.01
-        );
+        // Slow rotation like reference
+        groupRef.current.rotation.y = t * s.rotation * (1 + vel * 0.2);
+        groupRef.current.rotation.x = Math.sin(t * 0.08) * 0.02;
       }
 
-      if (frameSkip.current % (idleSkip * 8) === 0 && prevPos.current) {
+      // Occasional matrix refresh for proximity only
+      if (frameSkip.current % (idleSkip * 10) === 0 && prevPos.current) {
         const prev = prevPos.current;
-        // Soft proximity: particles with high seed react a hair more to pointer
         const px = interaction.smoothX;
         const py = interaction.smoothY;
         for (let i = 0; i < n; i++) {
@@ -234,17 +233,16 @@ export default function ParticleSystem({ reducedMotion = false }) {
           let x = prev[i3];
           let y = prev[i3 + 1];
           let z = prev[i3 + 2];
-          // Extremely subtle local offset toward pointer direction
           if (!reducedMotion && !profile.isMobile) {
-            const prox = 0.015 * seed;
+            const prox = 0.012 * seed;
             x += px * prox;
-            y += py * prox * 0.7;
+            y += py * prox * 0.6;
           }
           dummy.position.set(x, y, z);
           dummy.scale.setScalar(scales[i] * s.particleSize);
           dummy.rotation.set(
-            seeds[i] * 2.1 + (vel * seed * 0.4),
-            seeds[i] * 3.4,
+            seeds[i] * 2.1,
+            seeds[i] * 3.4 + t * 0.02 * seed,
             seeds[i] * Math.PI * 2
           );
           dummy.updateMatrix();
@@ -266,14 +264,12 @@ export default function ParticleSystem({ reducedMotion = false }) {
     const posB = targets[i1];
 
     const mid = 1 - Math.abs(localT - 0.5) * 2;
-    // Velocity amplifies scatter slightly when scrolling fast
-    const scatter =
-      s.distortion * 0.08 + mid * mid * 0.055 + vel * 0.04;
-    const coolBlend = smoothstep(0.4, 2.2, morph);
+    const scatter = s.distortion * 0.06 + mid * mid * 0.04 + vel * 0.03;
+    const coolBlend = smoothstep(0.5, 2.5, morph);
     const sizeMul = s.particleSize;
     const colorI = s.colorIntensity;
     const spring = 0.14;
-    const lagWindow = 0.16;
+    const lagWindow = 0.14;
 
     if (!prevPos.current) {
       prevPos.current = new Float32Array(maxCount * 3);
@@ -281,7 +277,7 @@ export default function ParticleSystem({ reducedMotion = false }) {
     }
     const prev = prevPos.current;
 
-    const needColor = Math.abs(morph - lastColorMorph.current) > 0.01;
+    const needColor = Math.abs(morph - lastColorMorph.current) > 0.012;
     if (needColor) lastColorMorph.current = morph;
 
     const stride = perf.density < 0.6 ? 2 : 1;
@@ -308,13 +304,13 @@ export default function ParticleSystem({ reducedMotion = false }) {
       let tz = az + (bz - az) * delayed;
 
       if (scatter > 0.004) {
-        const n1 = Math.sin(t * 0.7 + seed * 12.0 + ax * 2.5);
-        const n2 = Math.cos(t * 0.55 + seed * 8.0 + ay * 3.0);
-        const n3 = Math.sin(t * 0.4 + seed * 15.0 + az * 2.2);
-        const amp = scatter * (0.55 + seed * 0.55);
+        const n1 = Math.sin(t * 0.6 + seed * 12.0 + ax * 2.5);
+        const n2 = Math.cos(t * 0.5 + seed * 8.0 + ay * 3.0);
+        const n3 = Math.sin(t * 0.35 + seed * 15.0 + az * 2.2);
+        const amp = scatter * (0.5 + seed * 0.5);
         tx += n1 * amp;
-        ty += n2 * amp * 0.8;
-        tz += n3 * amp * 0.85;
+        ty += n2 * amp * 0.75;
+        tz += n3 * amp * 0.8;
       }
 
       const x = prev[i3] + (tx - prev[i3]) * spring;
@@ -326,12 +322,12 @@ export default function ParticleSystem({ reducedMotion = false }) {
       prev[i3 + 2] = z;
 
       dummy.position.set(x, y, z);
-      dummy.scale.setScalar(scales[i] * sizeMul * (1 + mid * 0.06 * seed));
+      dummy.scale.setScalar(scales[i] * sizeMul * (1 + mid * 0.04 * seed));
 
-      const rotAmp = 0.12 + mid * 0.28 + vel * 0.15;
+      const rotAmp = 0.08 + mid * 0.2;
       dummy.rotation.set(
-        t * 0.07 * rotAmp + seed * 2.1,
-        t * 0.05 * rotAmp + seed * 3.4,
+        t * 0.05 * rotAmp + seed * 2.1,
+        t * 0.04 * rotAmp + seed * 3.4,
         seed * Math.PI * 2
       );
       dummy.updateMatrix();
@@ -369,14 +365,8 @@ export default function ParticleSystem({ reducedMotion = false }) {
         if (i >= n) continue;
         const i3 = i * 3;
         dummy.position.set(prev[i3], prev[i3 + 1], prev[i3 + 2]);
-        dummy.scale.setScalar(
-          scales[i] * (2.1 + glows[i] * 1.3) * sizeMul
-        );
-        dummy.rotation.set(
-          t * 0.04 + seeds[i],
-          t * 0.03 + seeds[i] * 2,
-          seeds[i] * Math.PI
-        );
+        dummy.scale.setScalar(scales[i] * (1.6 + glows[i]) * sizeMul);
+        dummy.rotation.set(t * 0.03 + seeds[i], t * 0.02, seeds[i]);
         dummy.updateMatrix();
         glowMesh.setMatrixAt(g, dummy.matrix);
       }
@@ -387,14 +377,8 @@ export default function ParticleSystem({ reducedMotion = false }) {
     }
 
     if (groupRef.current) {
-      const rotBoost = 1 + vel * 0.3;
-      groupRef.current.rotation.y =
-        t * s.rotation * rotBoost + morph * 0.1;
-      groupRef.current.rotation.x =
-        Math.sin(t * 0.1) * 0.025 + morph * 0.02;
-      groupRef.current.scale.setScalar(
-        1 + Math.sin(t * 0.35) * 0.006 + mid * 0.02 + vel * 0.012
-      );
+      groupRef.current.rotation.y = t * s.rotation + morph * 0.08;
+      groupRef.current.rotation.x = Math.sin(t * 0.08) * 0.02 + morph * 0.015;
     }
   });
 
