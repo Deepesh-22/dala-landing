@@ -1,5 +1,6 @@
 /**
  * Morph targets — compact anatomical brain matching reference silhouette.
+ * Order: brain → distorted → abstract → bulb → globe → structure
  */
 
 function hash(n) {
@@ -79,11 +80,10 @@ export function createBrain(count) {
   const nAura = count - nSurface - nInternal - nCere - nStem;
   let idx = 0;
 
-  // Tighter gap, more vertical/compact like reference
   const HEMI_GAP = 0.22;
   const RX = 0.85;
   const RY = 0.72;
-  const RZ = 0.78; // was ~1.05 — reduced horizontal stretch
+  const RZ = 0.78;
 
   for (let i = 0; i < nSurface; i++) {
     const side = i % 2 === 0 ? -1 : 1;
@@ -108,30 +108,25 @@ export function createBrain(count) {
     let ry = RY * asymY;
     let rz = RZ * asymZ;
 
-    // Frontal
     if (lz > 0.25) {
       rz *= 1.1;
       ry *= 0.95;
       rx *= 1.05;
     }
-    // Occipital
     if (lz < -0.25) {
       rx *= 0.82;
       rz *= 0.88;
       ry *= 0.9;
     }
-    // Superior
     if (ly > 0.3) {
       rx *= 1.08;
       ry *= 1.1;
     }
-    // Temporal
     if (ly < -0.08 && lx > 0.3) {
       ry *= 0.7;
       ly -= 0.08;
     }
 
-    // Cortical folds
     const g1 = noise3(lx * 10 + side * 3, ly * 10, lz * 10);
     const g2 = noise3(lx * 20, ly * 20 + side, lz * 20);
     const sulcus =
@@ -161,7 +156,6 @@ export function createBrain(count) {
     idx++;
   }
 
-  // Cerebellum
   for (let j = 0; j < nCere && idx < count; j++) {
     const side = hash(j * 0.61) > 0.5 ? 1 : -1;
     const d = fibDir(j, nCere);
@@ -172,7 +166,6 @@ export function createBrain(count) {
     idx++;
   }
 
-  // Brainstem — clear vertical stem like reference
   for (let j = 0; j < nStem && idx < count; j++) {
     const t = j / Math.max(nStem - 1, 1);
     const a = hash(j * 4.1) * Math.PI * 2;
@@ -213,12 +206,11 @@ export function createDistorted(count) {
 }
 
 export function createAbstract(count) {
-  // Soft scatter cloud — intermediate dissolve state
   return createScatter(count);
 }
 
 /**
- * Lightbulb — matches reference: round glass head, neck, screw base.
+ * Lightbulb — round glass head, neck, screw base.
  */
 export function createBulb(count) {
   const pos = new Float32Array(count * 3);
@@ -303,7 +295,6 @@ export function createGlobe(count) {
   const R = 1.05;
   for (let i = 0; i < count; i++) {
     const d = fibDir(i, count);
-    // Mild continent-like clustering via noise threshold
     const n = noise3(d.x * 4, d.y * 4, d.z * 4);
     const surface = n > -0.15 ? 1.0 : 0.92;
     const r = R * surface + hash(i) * 0.02;
@@ -315,13 +306,11 @@ export function createGlobe(count) {
 }
 
 export function createStructure(count) {
-  // Reference final abstract — soft organic blob / logo-adjacent
   const pos = new Float32Array(count * 3);
   for (let i = 0; i < count; i++) {
     const d = fibDir(i, count);
     const n = noise3(d.x * 3, d.y * 3, d.z * 3);
     const r = 0.7 + n * 0.25 + hash(i) * 0.15;
-    // Bean / abstract logo shape
     const squash = 1 + Math.sin(d.y * Math.PI) * 0.2;
     pos[i * 3] = d.x * r * squash;
     pos[i * 3 + 1] = d.y * r * 1.15;
@@ -330,12 +319,13 @@ export function createStructure(count) {
   return pos;
 }
 
+/** Reference path: brain → dissolve → abstract → bulb → globe → structure */
 export const SHAPE_ORDER = [
   'brain',
   'distorted',
   'abstract',
   'bulb',
-  'scatter',
+  'globe',
   'structure',
 ];
 

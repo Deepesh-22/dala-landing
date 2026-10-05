@@ -1,5 +1,6 @@
 /**
  * Master timeline — fidelity: longer brain hold, right-biased hero framing.
+ * Morph path: brain → distorted → abstract → bulb → globe → structure
  */
 
 export const TIMELINE = {
@@ -10,7 +11,8 @@ export const TIMELINE = {
   abstractEnd: 0.52,
   manifestoEnd: 0.64,
   morphToBulbEnd: 0.78,
-  bulbEnd: 0.9,
+  bulbEnd: 0.88,
+  globeEnd: 0.95,
 };
 
 export const SHAPE = {
@@ -18,7 +20,7 @@ export const SHAPE = {
   DISTORTED: 1,
   ABSTRACT: 2,
   BULB: 3,
-  SCATTER: 4,
+  GLOBE: 4,
   STRUCTURE: 5,
 };
 
@@ -33,7 +35,8 @@ export const CAMERA_KEYS = [
   { p: 0.52, x: -0.32, y: 0.26, z: 4.85, lx: 0.32, ly: 0.04, lz: 0, fov: 44 },
   { p: 0.64, x: -0.25, y: 0.22, z: 5.1, lx: 0.22, ly: 0.02, lz: 0, fov: 45 },
   { p: 0.78, x: 0.12, y: 0.18, z: 4.1, lx: 0.5, ly: 0.08, lz: 0, fov: 39 },
-  { p: 0.9, x: 0.2, y: 0.16, z: 3.7, lx: 0.48, ly: 0.1, lz: 0, fov: 36 },
+  { p: 0.88, x: 0.2, y: 0.16, z: 3.7, lx: 0.48, ly: 0.1, lz: 0, fov: 36 },
+  { p: 0.95, x: 0.05, y: 0.2, z: 4.4, lx: 0.3, ly: 0.05, lz: 0, fov: 40 },
   { p: 1.0, x: -0.08, y: 0.28, z: 5.35, lx: 0.18, ly: 0.0, lz: 0, fov: 46 },
 ];
 
@@ -130,9 +133,11 @@ export function progressToMorph(p) {
 
   if (x < T.bulbEnd) return SHAPE.BULB;
 
-  const t = seg(x, T.bulbEnd, 1);
-  if (t < 0.45) return lerp(SHAPE.BULB, SHAPE.SCATTER, t / 0.45);
-  return lerp(SHAPE.SCATTER, SHAPE.STRUCTURE, (t - 0.45) / 0.55);
+  if (x < T.globeEnd) {
+    return lerp(SHAPE.BULB, SHAPE.GLOBE, seg(x, T.bulbEnd, T.globeEnd));
+  }
+
+  return lerp(SHAPE.GLOBE, SHAPE.STRUCTURE, seg(x, T.globeEnd, 1));
 }
 
 export function evaluateScene(progress) {
@@ -159,7 +164,6 @@ export function evaluateScene(progress) {
 
   const camera = sampleCamera(p);
 
-  // Object: further right + larger on hero for reference composition
   const camT = seg(p, 0, 1);
   const object = {
     x: lerp(1.45, 0.35, camT),
