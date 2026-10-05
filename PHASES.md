@@ -30,3 +30,10 @@ Foundation through lightbulb form + editorial sections
 - Manifesto / Bulb / Section: scroll-linked opacity, y, light scale
 - Headings: `font-weight: 400`, tight leading, `clamp(4rem, 7vw, 8rem)` on hero
 - Reduced-motion: all text visible, no transforms
+
+## Phase 12 — Cinematic camera ✅
+- `CAMERA_KEYS` in timeline.js — hero wide → closer → through field → bulb → pullback
+- `CameraController.jsx` — position / lookAt / fov lerp with frame-rate-independent damping
+- Fully reversible on scroll up (targets from progress only)
+- Subtle idle micro-drift; mobile FOV/Z scale
+- Object group also damped in ParticleScene

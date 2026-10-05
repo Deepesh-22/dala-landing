@@ -1,5 +1,6 @@
-import { useFrame, useThree } from '@react-three/fiber';
+import { useFrame } from '@react-three/fiber';
 import { useRef } from 'react';
+import * as THREE from 'three';
 import CameraController from './CameraController.jsx';
 import FloatingField from './FloatingField.jsx';
 import ParticleSystem from './ParticleSystem.jsx';
@@ -7,52 +8,42 @@ import { sceneState } from '../lib/sceneState.js';
 
 /**
  * Continuous WebGL scene — black bg, fixed canvas.
- * Camera + object placement driven only by sceneState (master timeline).
+ * Camera: CameraController (Phase 12) owns all camera motion.
+ * Object placement still driven by sceneState.
  */
 export default function ParticleScene({
   reducedMotion = false,
   isMobile = false,
 }) {
-  const { camera, size } = useThree();
   const groupRef = useRef(null);
-  const baseZ = useRef(4.4);
+  const groupPos = useRef(new THREE.Vector3(1.2, 0.08, 0));
+  const groupScale = useRef(1.55);
 
-  // Keep base Z responsive
-  const aspect = size.width / Math.max(size.height, 1);
-  baseZ.current = aspect < 0.9 ? 5.2 : 4.4;
+  useFrame((_, delta) => {
+    if (!groupRef.current) return;
 
-  useFrame(({ clock }) => {
-    if (reducedMotion) return;
-    const t = clock.elapsedTime;
     const s = sceneState;
-    const cam = s.camera;
+    const damping = reducedMotion ? 1 : 0.06;
+    const k = reducedMotion
+      ? 1
+      : 1 - Math.exp(-damping * 60 * Math.min(delta, 0.05));
 
-    // Idle micro-drift on top of timeline camera
-    camera.position.x = cam.x + Math.sin(t * 0.07) * 0.08;
-    camera.position.y = cam.y + Math.cos(t * 0.09) * 0.04;
-    camera.position.z = cam.z * (baseZ.current / 4.4);
-    camera.lookAt(cam.lookX, cam.lookY, 0);
+    groupPos.current.x += (s.object.x - groupPos.current.x) * k;
+    groupPos.current.y += (s.object.y - groupPos.current.y) * k;
+    groupScale.current += (s.object.scale - groupScale.current) * k;
 
-    if (groupRef.current) {
-      groupRef.current.position.set(s.object.x, s.object.y, 0);
-      groupRef.current.scale.setScalar(s.object.scale);
-    }
+    groupRef.current.position.copy(groupPos.current);
+    groupRef.current.scale.setScalar(groupScale.current);
   });
-
-  const startX = aspect > 1.2 ? 1.35 : aspect > 0.9 ? 1.1 : 0.55;
-  const startScale = aspect < 0.9 ? 1.35 : 1.55;
 
   return (
     <>
       <color attach="background" args={['#000000']} />
-      <CameraController />
+      <CameraController reducedMotion={reducedMotion} />
 
-      <FloatingField
-        reducedMotion={reducedMotion}
-        isMobile={isMobile}
-      />
+      <FloatingField reducedMotion={reducedMotion} isMobile={isMobile} />
 
-      <group ref={groupRef} position={[startX, 0.08, 0]} scale={startScale}>
+      <group ref={groupRef} position={[1.2, 0.08, 0]} scale={1.55}>
         <ParticleSystem reducedMotion={reducedMotion} />
       </group>
     </>
