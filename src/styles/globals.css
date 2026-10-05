@@ -1,4 +1,4 @@
-/* Phase 1–16 */
+/* Phase 1–18 */
 
 :root {
   --bg: #000000;
@@ -26,6 +26,7 @@ html {
   font-family: var(--font);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
 }
 
 html.lenis,
@@ -50,6 +51,7 @@ body {
   min-height: 100dvh;
   background: var(--bg);
   position: relative;
+  overflow-x: hidden;
 }
 
 .webgl-root {
@@ -211,7 +213,6 @@ body {
   will-change: opacity, transform;
 }
 
-/* Phase 16 — CTA micro interaction */
 .hero__cta {
   display: inline-flex;
   align-items: center;
@@ -448,7 +449,6 @@ body {
   gap: 2.25rem;
 }
 
-/* Phase 16 — nav link hover: opacity + underline indicator */
 .nav__link {
   position: relative;
   font-size: 0.68rem;
@@ -523,6 +523,7 @@ body {
   background: none;
   border: none;
   cursor: pointer;
+  z-index: 40;
 }
 
 .nav__menu-line {
@@ -540,6 +541,63 @@ body {
 
 .nav__menu-btn.is-open .nav__menu-line:last-child {
   transform: translateY(-3.5px) rotate(-45deg);
+}
+
+/* Phase 18 — mobile menu panel */
+.nav__mobile {
+  position: fixed;
+  inset: 0;
+  z-index: 35;
+  background: rgba(0, 0, 0, 0.94);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.35s ease, visibility 0.35s ease;
+}
+
+.nav__mobile.is-open {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.nav__mobile-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.75rem;
+  padding: 2rem;
+}
+
+.nav__mobile-link {
+  font-size: 1.1rem;
+  font-weight: 400;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  text-decoration: none;
+  color: rgba(255, 255, 255, 0.75);
+  transition: color 0.25s ease;
+}
+
+.nav__mobile-link:hover {
+  color: #fff;
+}
+
+.nav__mobile-cta {
+  margin-top: 0.75rem;
+  display: inline-flex;
+  padding: 0.85rem 1.75rem;
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  text-decoration: none;
+  color: #fff;
+  background: var(--purple);
+  border-radius: 999px;
 }
 
 .loader {
@@ -577,7 +635,8 @@ body {
   .hero__cta {
     transition: none;
   }
-  .nav__link::after {
+  .nav__link::after,
+  .nav__mobile {
     transition: none;
   }
   .webgl-fallback__glow {
