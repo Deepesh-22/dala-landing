@@ -1,16 +1,26 @@
 import { Canvas } from '@react-three/fiber';
-import { Suspense } from 'react';
+import { Suspense, useEffect } from 'react';
 import ParticleScene from '../../scenes/ParticleScene.jsx';
 import { getCappedDpr, useResponsive } from '../../hooks/useResponsive.js';
 import WebGLErrorBoundary from './WebGLErrorBoundary.jsx';
 import FallbackVisual from './FallbackVisual.jsx';
 
 /**
- * Phase 14 — DPR capped, WebGL always present (never hidden on mobile).
+ * Phase 14–18 — DPR capped, always present, resizes with window.
  */
 export default function WebGLCanvas({ reducedMotion = false }) {
   const { isMobile, isTablet } = useResponsive();
   const dpr = reducedMotion ? 1 : getCappedDpr();
+
+  // Force a layout pass after fonts / soft keyboard so canvas matches viewport
+  useEffect(() => {
+    const onVis = () => {
+      // r3f listens to window resize; trigger one for orientation changes
+      window.dispatchEvent(new Event('resize'));
+    };
+    window.addEventListener('orientationchange', onVis);
+    return () => window.removeEventListener('orientationchange', onVis);
+  }, []);
 
   return (
     <div className="webgl-root" aria-hidden="true">
@@ -41,6 +51,9 @@ export default function WebGLCanvas({ reducedMotion = false }) {
           }}
           onCreated={({ gl, camera }) => {
             gl.setClearColor(0x000000, 1);
+            // Cap pixel ratio again at context level
+            const cap = reducedMotion ? 1 : getCappedDpr();
+            gl.setPixelRatio(cap);
             camera.lookAt(isMobile ? 0.3 : 0.85, 0.05, 0);
           }}
         >
