@@ -1,9 +1,9 @@
 /**
- * Procedural particle targets — same count for every shape (morph-ready).
+ * Procedural particle targets — fidelity-tuned brain silhouette.
  * States: brain, distorted, abstract, bulb, scatter, structure
  *
- * FIX: no zero-padding — leftover slots are redistributed onto surface
- * so nothing clusters at the origin.
+ * Brain: dual hemisphere, deep medial fissure, cortical folds,
+ * cerebellum, brainstem — readable at hero scale.
  */
 
 function hash(n) {
@@ -32,7 +32,6 @@ function fibDir(i, count) {
   };
 }
 
-/** Fill remaining slots by re-sampling a surface shell (never origin). */
 function fillRemainder(pos, idx, count, radius = 0.95, yScale = 0.7) {
   while (idx < count) {
     const d = fibDir(idx + 997, count);
@@ -73,123 +72,151 @@ export function createScatter(count) {
   return pos;
 }
 
+/**
+ * Fidelity-tuned brain — readable dual-hemisphere silhouette.
+ * More surface mass, deeper fissure, stronger cortical relief.
+ */
 export function createBrain(count) {
   const pos = new Float32Array(count * 3);
-  const nSurface = Math.floor(count * 0.68);
-  const nInternal = Math.floor(count * 0.1);
-  const nMedial = Math.floor(count * 0.06);
-  const nCere = Math.floor(count * 0.1);
-  const nStem = Math.floor(count * 0.04);
+  // Bias toward surface for silhouette readability
+  const nSurface = Math.floor(count * 0.74);
+  const nInternal = Math.floor(count * 0.08);
+  const nMedial = Math.floor(count * 0.05);
+  const nCere = Math.floor(count * 0.09);
+  const nStem = Math.floor(count * 0.03);
   const nAura = count - nSurface - nInternal - nMedial - nCere - nStem;
   let idx = 0;
 
-  const HEMI_GAP = 0.28;
-  const RX = 0.72;
-  const RY = 0.58;
-  const RZ = 0.98;
+  // Wider interhemispheric gap → clearer two-lobe read
+  const HEMI_GAP = 0.34;
+  const RX = 0.78;
+  const RY = 0.62;
+  const RZ = 1.05;
 
   for (let i = 0; i < nSurface; i++) {
     const side = i % 2 === 0 ? -1 : 1;
     const hemiIndex = Math.floor(i / 2);
     const hemiCount = Math.ceil(nSurface / 2);
     const d = fibDir(hemiIndex, hemiCount);
-    let lx = Math.abs(d.x) * 0.72 + 0.28;
+
+    // Push points off the midplane so the fissure is empty
+    let lx = Math.abs(d.x) * 0.78 + 0.32;
     let ly = d.y;
     let lz = d.z;
-    const asymX = side < 0 ? 0.93 : 1.07;
-    const asymY = side < 0 ? 1.04 : 0.96;
-    const asymZ = side < 0 ? 0.97 : 1.03;
+
+    // Mild left/right asymmetry (organic, not mirrored clone)
+    const asymX = side < 0 ? 0.94 : 1.06;
+    const asymY = side < 0 ? 1.03 : 0.97;
+    const asymZ = side < 0 ? 0.98 : 1.02;
+
     let len = Math.sqrt(lx * lx + ly * ly + lz * lz) || 1;
     lx /= len;
     ly /= len;
     lz /= len;
+
     let rx = RX * asymX;
     let ry = RY * asymY;
     let rz = RZ * asymZ;
-    if (lz > 0.2) {
-      rz *= 1.14;
-      ry *= 0.94;
-      rx *= 1.06;
+
+    // Frontal expansion
+    if (lz > 0.22) {
+      rz *= 1.18;
+      ry *= 0.93;
+      rx *= 1.08;
     }
-    if (lz < -0.28) {
-      rx *= 0.78;
-      rz *= 0.85;
-      ry *= 0.88;
+    // Occipital taper
+    if (lz < -0.3) {
+      rx *= 0.76;
+      rz *= 0.82;
+      ry *= 0.86;
     }
-    if (ly > 0.28) {
-      rx *= 1.1;
-      ry *= 1.12;
+    // Superior parietal
+    if (ly > 0.3) {
+      rx *= 1.12;
+      ry *= 1.14;
     }
-    if (ly < -0.12 && lx > 0.35) {
-      ry *= 0.68;
-      ly -= 0.1;
+    // Temporal lobe dip
+    if (ly < -0.1 && lx > 0.32) {
+      ry *= 0.64;
+      ly -= 0.12;
     }
-    const g1 = noise3(lx * 8 + side * 2.5, ly * 8, lz * 8);
-    const g2 = noise3(lx * 16, ly * 16 + side, lz * 16);
-    const g3 = noise3(lx * 30 + side, ly * 30, lz * 30);
+
+    // Multi-scale cortical folds (sulci readable at hero distance)
+    const g1 = noise3(lx * 9 + side * 2.8, ly * 9, lz * 9);
+    const g2 = noise3(lx * 18, ly * 18 + side, lz * 18);
+    const g3 = noise3(lx * 34 + side, ly * 34, lz * 34);
     const sulcus =
-      Math.sin(lz * 11 + ly * 7) * 0.032 +
-      Math.sin(ly * 22 - lz * 9 + lx * 5) * 0.024 +
-      Math.sin(lz * 32) * 0.014;
-    const fold = g1 * 0.07 + g2 * 0.042 + g3 * 0.024 + sulcus;
-    const shell = 0.94 + hash(i * 1.37) * 0.06;
-    const deep = hash(i * 3.1) > 0.92 ? 0.82 : 1.0;
+      Math.sin(lz * 13 + ly * 8) * 0.04 +
+      Math.sin(ly * 26 - lz * 11 + lx * 6) * 0.03 +
+      Math.sin(lz * 38 + lx * 14) * 0.018 +
+      Math.sin(ly * 42) * 0.012;
+    const fold = g1 * 0.085 + g2 * 0.05 + g3 * 0.028 + sulcus;
+
+    const shell = 0.93 + hash(i * 1.37) * 0.07;
+    // Occasional deep sulcus pocket
+    const deep = hash(i * 3.1) > 0.88 ? 0.78 : 1.0;
     const r = (1.0 + fold) * shell * deep;
+
     pos[idx * 3] = side * (HEMI_GAP + lx * r * rx);
-    pos[idx * 3 + 1] = ly * r * ry + 0.1;
+    pos[idx * 3 + 1] = ly * r * ry + 0.12;
     pos[idx * 3 + 2] = lz * r * rz;
     idx++;
   }
 
+  // Soft internal mass (not origin clump)
   for (let j = 0; j < nInternal && idx < count; j++) {
     const side = j % 2 === 0 ? -1 : 1;
     const d = fibDir(j + 19, nInternal);
     const u = hash(j * 2.1);
-    const r = 0.2 + u * 0.38;
-    pos[idx * 3] = side * (HEMI_GAP * 0.7 + Math.abs(d.x) * r * RX * 0.65);
-    pos[idx * 3 + 1] = d.y * r * RY * 0.6 + 0.1;
-    pos[idx * 3 + 2] = d.z * r * RZ * 0.65;
+    const r = 0.22 + u * 0.36;
+    pos[idx * 3] = side * (HEMI_GAP * 0.65 + Math.abs(d.x) * r * RX * 0.6);
+    pos[idx * 3 + 1] = d.y * r * RY * 0.55 + 0.12;
+    pos[idx * 3 + 2] = d.z * r * RZ * 0.6;
     idx++;
   }
 
+  // Thin medial wall particles (fissure edge)
   for (let j = 0; j < nMedial && idx < count; j++) {
     const side = j % 2 === 0 ? -1 : 1;
-    pos[idx * 3] = side * (0.05 + hash(j) * 0.04);
-    pos[idx * 3 + 1] = (hash(j * 1.9) - 0.42) * RY * 0.9 + 0.1;
-    pos[idx * 3 + 2] = (hash(j * 2.7) - 0.5) * RZ * 0.68;
+    pos[idx * 3] = side * (0.08 + hash(j) * 0.05);
+    pos[idx * 3 + 1] = (hash(j * 1.9) - 0.4) * RY * 0.95 + 0.12;
+    pos[idx * 3 + 2] = (hash(j * 2.7) - 0.5) * RZ * 0.7;
     idx++;
   }
 
+  // Cerebellum — distinct rear-lower mass with fine folia
   for (let j = 0; j < nCere && idx < count; j++) {
     const side = hash(j * 0.61) > 0.5 ? 1 : -1;
     const d = fibDir(j, nCere);
-    const folio = Math.sin(d.y * 30 + d.z * 12) * 0.03;
-    pos[idx * 3] = side * (0.22 + Math.abs(d.x) * (0.26 + folio));
-    pos[idx * 3 + 1] = -0.48 + d.y * 0.18;
-    pos[idx * 3 + 2] = -0.58 + d.z * 0.28;
+    const folio = Math.sin(d.y * 36 + d.z * 14) * 0.035;
+    pos[idx * 3] = side * (0.2 + Math.abs(d.x) * (0.28 + folio));
+    pos[idx * 3 + 1] = -0.52 + d.y * 0.2;
+    pos[idx * 3 + 2] = -0.62 + d.z * 0.3;
     idx++;
   }
 
+  // Brainstem
   for (let j = 0; j < nStem && idx < count; j++) {
     const t = j / Math.max(nStem - 1, 1);
     const a = hash(j * 4.1) * Math.PI * 2;
-    const r = 0.085 * (1 - t * 0.35);
-    pos[idx * 3] = Math.cos(a) * r + (hash(j * 1.5) - 0.5) * 0.025;
-    pos[idx * 3 + 1] = -0.3 - t * 0.55;
-    pos[idx * 3 + 2] = -0.15 + Math.sin(a) * r * 0.45;
+    const r = 0.09 * (1 - t * 0.4);
+    pos[idx * 3] = Math.cos(a) * r + (hash(j * 1.5) - 0.5) * 0.02;
+    pos[idx * 3 + 1] = -0.32 - t * 0.58;
+    pos[idx * 3 + 2] = -0.12 + Math.sin(a) * r * 0.45;
     idx++;
   }
 
+  // Tight outer aura (not sparse scatter)
   for (let j = 0; j < nAura && idx < count; j++) {
     const d = fibDir(j + 101, Math.max(nAura, 1));
-    const R = 1.15 + hash(j * 0.4) * 0.25;
-    pos[idx * 3] = d.x * R * 0.85;
-    pos[idx * 3 + 1] = d.y * R * 0.5;
-    pos[idx * 3 + 2] = d.z * R * 0.8;
+    const R = 1.08 + hash(j * 0.4) * 0.18;
+    pos[idx * 3] = d.x * R * 0.88;
+    pos[idx * 3 + 1] = d.y * R * 0.52;
+    pos[idx * 3 + 2] = d.z * R * 0.82;
     idx++;
   }
 
-  fillRemainder(pos, idx, count, 1.05, 0.55);
+  fillRemainder(pos, idx, count, 1.02, 0.55);
   return pos;
 }
 
@@ -201,12 +228,11 @@ export function createDistorted(count) {
     const y = base[i * 3 + 1];
     const z = base[i * 3 + 2];
     const n = noise3(x * 3, y * 3, z * 3);
-    // Softer stretch than before — less explosion
-    const stretch = 1.08 + n * 0.14;
-    const twist = n * 0.18;
-    pos[i * 3] = x * stretch + Math.sin(y * 4) * 0.06 + twist * 0.1;
-    pos[i * 3 + 1] = y * (0.94 + n * 0.12) + Math.cos(x * 3) * 0.05;
-    pos[i * 3 + 2] = z * stretch * 0.97 + Math.sin(x * 5 + y * 2) * 0.08;
+    const stretch = 1.1 + n * 0.16;
+    const twist = n * 0.2;
+    pos[i * 3] = x * stretch + Math.sin(y * 4) * 0.07 + twist * 0.12;
+    pos[i * 3 + 1] = y * (0.92 + n * 0.14) + Math.cos(x * 3) * 0.055;
+    pos[i * 3 + 2] = z * stretch * 0.96 + Math.sin(x * 5 + y * 2) * 0.09;
   }
   return pos;
 }
@@ -232,10 +258,6 @@ export function createAbstract(count) {
   return pos;
 }
 
-/**
- * STATE 3 — lightbulb silhouette from triangular particles.
- * Glass head · neck · screw base · subtle outer glow shell
- */
 export function createBulb(count) {
   const pos = new Float32Array(count * 3);
 

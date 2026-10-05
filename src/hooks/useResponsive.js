@@ -1,14 +1,7 @@
 import { useEffect, useState } from 'react';
 
 /**
- * Phase 14 — device capability snapshot.
- *
- * Particle budgets (brief):
- *   mobile  8k–20k
- *   tablet  20k–50k
- *   desktop 50k–100k
- *
- * DPR: Math.min(devicePixelRatio, 2) with tighter mobile/tablet caps.
+ * Device capability — denser particles for visual fidelity on desktop.
  */
 function getSnapshot() {
   if (typeof window === 'undefined') {
@@ -20,11 +13,11 @@ function getSnapshot() {
       isDesktop: true,
       dpr: 1,
       reducedMotion: false,
-      particleBudget: 60000,
-      triangleScale: 1,
+      particleBudget: 70000,
+      triangleScale: 0.82,
       enableGlow: true,
-      objectOffsetX: 1.2,
-      objectScale: 1.55,
+      objectOffsetX: 1.45,
+      objectScale: 1.72,
     };
   }
 
@@ -32,7 +25,6 @@ function getSnapshot() {
   const height = window.innerHeight;
   const rawDpr = window.devicePixelRatio || 1;
 
-  // Brief: Math.min(dpr, 2) — then tier-tighten for GPU cost
   let dpr = Math.min(rawDpr, 2);
   if (width < 640) dpr = Math.min(dpr, 1.25);
   else if (width < 1024) dpr = Math.min(dpr, 1.5);
@@ -46,44 +38,41 @@ function getSnapshot() {
   const isTablet = width >= 768 && width < 1024;
   const isDesktop = width >= 1024;
 
-  // Particle budgets per brief ranges
+  // Higher density = more silhouette fidelity
   let particleBudget;
-  if (width < 480) particleBudget = 8000;
-  else if (width < 640) particleBudget = 12000;
-  else if (width < 768) particleBudget = 18000;
-  else if (width < 900) particleBudget = 28000;
-  else if (width < 1024) particleBudget = 40000;
-  else if (width < 1440) particleBudget = 55000;
-  else if (width < 1800) particleBudget = 70000;
-  else particleBudget = 90000;
+  if (width < 480) particleBudget = 10000;
+  else if (width < 640) particleBudget = 14000;
+  else if (width < 768) particleBudget = 20000;
+  else if (width < 900) particleBudget = 32000;
+  else if (width < 1024) particleBudget = 45000;
+  else if (width < 1440) particleBudget = 65000;
+  else if (width < 1800) particleBudget = 80000;
+  else particleBudget = 95000;
 
-  // Hardware concurrency soft limit
   const cores = navigator.hardwareConcurrency || 4;
-  if (cores <= 2) particleBudget = Math.min(particleBudget, 12000);
-  else if (cores <= 4 && isMobile) particleBudget = Math.min(particleBudget, 16000);
+  if (cores <= 2) particleBudget = Math.min(particleBudget, 14000);
+  else if (cores <= 4 && isMobile) particleBudget = Math.min(particleBudget, 18000);
 
   if (reducedMotion) particleBudget = Math.min(particleBudget, 10000);
 
-  // Triangle size multiplier (mobile smaller)
-  let triangleScale = 1;
-  if (isMobile) triangleScale = 0.72;
-  else if (isTablet) triangleScale = 0.88;
+  // Smaller triangles → denser, more premium field (not chunky)
+  let triangleScale = 0.82;
+  if (isMobile) triangleScale = 0.65;
+  else if (isTablet) triangleScale = 0.75;
 
-  // Glow only on desktop-class (expensive additive pass)
   const enableGlow = isDesktop && !reducedMotion && cores > 4;
 
-  // Object placement — mobile more centered / lower so type stacks on top
-  let objectOffsetX = 1.2;
-  let objectScale = 1.55;
+  let objectOffsetX = 1.45;
+  let objectScale = 1.72;
   if (isMobile) {
-    objectOffsetX = 0.15;
-    objectScale = 1.15;
+    objectOffsetX = 0.12;
+    objectScale = 1.2;
   } else if (isTablet) {
-    objectOffsetX = 0.75;
-    objectScale = 1.35;
+    objectOffsetX = 0.85;
+    objectScale = 1.4;
   } else if (width < 1280) {
-    objectOffsetX = 1.05;
-    objectScale = 1.45;
+    objectOffsetX = 1.2;
+    objectScale = 1.55;
   }
 
   return {
