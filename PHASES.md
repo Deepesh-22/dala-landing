@@ -5,35 +5,22 @@ Foundation through lightbulb form + editorial sections
 
 ## Phase 10 — Continuous experience ✅
 - Single master timeline (`src/lib/timeline.js`) — configurable keyframes
-- Central `sceneState`:
-  progress, morph, shape, camera, object,
-  particleDensity, particleSize, colorIntensity,
-  rotation, distortion, fieldOpacity
+- Central `sceneState`
 - One ScrollTrigger updates sceneState; WebGL only reads it
-- Black background + fixed canvas throughout — no hard cuts / cards / white sections
-
-### Timeline (edit in timeline.js)
-| Progress | Beat |
-|----------|------|
-| 0.00–0.15 | Hero brain |
-| 0.15–0.28 | Brain rotation / camera |
-| 0.28–0.40 | Brain dissolves |
-| 0.40–0.52 | Abstract structure |
-| 0.52–0.64 | Manifesto text focus |
-| 0.64–0.78 | Morph toward bulb |
-| 0.78–0.90 | Lightbulb hold |
-| 0.90–1.00 | Structure / CTA |
 
 ## Phase 11 — Typographic motion ✅
-- `useEditorialMotion` — slow premium GSAP (power2/power3, no bounce/elastic)
-- Hero: line-stagger entrance + subtle scroll drift
-- Manifesto / Bulb / Section: scroll-linked opacity, y, light scale
-- Headings: `font-weight: 400`, tight leading, `clamp(4rem, 7vw, 8rem)` on hero
-- Reduced-motion: all text visible, no transforms
+- `useEditorialMotion` — slow premium GSAP
+- Hero line-stagger + scroll drift
+- Headings: weight 400, `clamp(4rem, 7vw, 8rem)`
 
 ## Phase 12 — Cinematic camera ✅
-- `CAMERA_KEYS` in timeline.js — hero wide → closer → through field → bulb → pullback
-- `CameraController.jsx` — position / lookAt / fov lerp with frame-rate-independent damping
-- Fully reversible on scroll up (targets from progress only)
-- Subtle idle micro-drift; mobile FOV/Z scale
-- Object group also damped in ParticleScene
+- `CAMERA_KEYS` + damped `CameraController`
+- Reversible scroll-driven path
+
+## Phase 13 — Particle color language ✅
+- `src/scenes/colorField.js` — spatial fields (not random equal-prob)
+- Palette: #FFF #F5C400 #8B5CF6 #6366F1 #06B6D4 #22C55E #EC4899
+- Top: yellow/white · Mid: white/purple/cyan · Lower: yellow/purple/blue · Core: near-white
+- Sparse magenta/green accents only
+- Soft additive glow layer (~12% brightest particles) — no full-scene bloom
+- Floating field uses same quiet language; black background stays pure

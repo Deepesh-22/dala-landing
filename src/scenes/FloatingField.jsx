@@ -1,19 +1,7 @@
 import { useFrame } from '@react-three/fiber';
 import { useLayoutEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
-
-const COLORS = [
-  new THREE.Color('#ffffff'),
-  new THREE.Color('#f5d76e'),
-  new THREE.Color('#ffb829'),
-  new THREE.Color('#c39bd3'),
-  new THREE.Color('#9b59b6'),
-  new THREE.Color('#8052ff'),
-  new THREE.Color('#5dade2'),
-  new THREE.Color('#3498db'),
-  new THREE.Color('#1abc9c'),
-  new THREE.Color('#e84393'),
-];
+import { colorForFieldParticle } from './colorField.js';
 
 function hash01(i) {
   const x = Math.sin(i * 12.9898 + 78.233) * 43758.5453;
@@ -27,9 +15,8 @@ function fieldCount(isMobile, reducedMotion) {
 }
 
 /**
- * Phase 5 — separate floating triangle field.
- * Not part of the brain. Subtle, depth-sorted, parallax.
- * Sparse on the left so typography stays readable.
+ * Floating triangle field — Phase 5 + 13 color language.
+ * Quiet spatial colors, depth-dimmed, never overpower type.
  */
 export default function FloatingField({
   reducedMotion = false,
@@ -46,20 +33,17 @@ export default function FloatingField({
   const dummy = useMemo(() => new THREE.Object3D(), []);
   const colorTmp = useMemo(() => new THREE.Color(), []);
 
-  // Base state: position, scale, rotation speed, depth, seed
   const data = useMemo(() => {
     const base = new Float32Array(count * 3);
     const scales = new Float32Array(count);
-    const speeds = new Float32Array(count * 3); // rot + drift rates
-    const depths = new Float32Array(count); // 0 near → 1 far
+    const speeds = new Float32Array(count * 3);
+    const depths = new Float32Array(count);
     const seeds = new Float32Array(count);
 
     for (let i = 0; i < count; i++) {
       const seed = hash01(i);
       seeds[i] = seed;
 
-      // Bias to right side & edges — leave left-center for type
-      // x: mostly 0.2 → 3.5 (right), occasional left fringe
       const sideBias = seed > 0.18 ? 1 : -1;
       const xSpread = sideBias > 0 ? 2.8 : 1.4;
       const x =
@@ -67,7 +51,6 @@ export default function FloatingField({
         (hash01(i + 7) - 0.5) * 0.6;
 
       const y = (hash01(i + 11) - 0.5) * 3.2;
-      // Depth: near (z ~ 1) to far (z ~ -4)
       const depth = hash01(i + 19);
       depths[i] = depth;
       const z = 1.2 - depth * 5.5;
@@ -76,17 +59,15 @@ export default function FloatingField({
       base[i * 3 + 1] = y;
       base[i * 3 + 2] = z;
 
-      // Near = larger, far = smaller; a few larger translucent ones
       const nearBoost = 1 - depth;
       const isLarge = seed > 0.92;
       scales[i] = isLarge
         ? 0.08 + seed * 0.1
         : 0.012 + nearBoost * 0.035 + seed * 0.02;
 
-      // Rotation / drift rates
       speeds[i * 3] = (seed - 0.5) * 0.4;
       speeds[i * 3 + 1] = (hash01(i + 29) - 0.5) * 0.3;
-      speeds[i * 3 + 2] = (hash01(i + 41) - 0.5) * 0.15; // z drift
+      speeds[i * 3 + 2] = (hash01(i + 41) - 0.5) * 0.15;
     }
 
     return { base, scales, speeds, depths, seeds };
@@ -111,7 +92,7 @@ export default function FloatingField({
         color: 0xffffff,
         wireframe: true,
         transparent: true,
-        opacity: 0.35, // base — instance colors further dim far particles
+        opacity: 0.28,
         depthWrite: false,
         side: THREE.DoubleSide,
         toneMapped: false,
@@ -136,15 +117,12 @@ export default function FloatingField({
       dummy.updateMatrix();
       mesh.setMatrixAt(i, dummy.matrix);
 
-      // Depth-based brightness: near brighter, far dimmer
-      const depth = depths[i];
-      const col = COLORS[Math.floor(seeds[i] * COLORS.length) % COLORS.length];
-      const brightness = 0.25 + (1 - depth) * 0.55;
-      colorTmp.setRGB(
-        col.r * brightness,
-        col.g * brightness,
-        col.b * brightness
+      const c = colorForFieldParticle(
+        seeds[i],
+        depths[i],
+        base[i * 3 + 1]
       );
+      colorTmp.setRGB(c.r, c.g, c.b);
       mesh.setColorAt(i, colorTmp);
     }
 
@@ -161,7 +139,6 @@ export default function FloatingField({
     const t = clock.elapsedTime;
     const { base, scales, speeds, seeds } = data;
 
-    // Slow field drift + per-particle float / rotation
     for (let i = 0; i < count; i++) {
       const seed = seeds[i];
       const sx = speeds[i * 3];
@@ -174,10 +151,11 @@ export default function FloatingField({
       const py =
         base[i * 3 + 1] +
         Math.cos(t * (0.12 + seed * 0.18) + seed * 4) * 0.1;
-      // Toward / away from camera
       const pz =
         base[i * 3 + 2] +
-        Math.sin(t * (0.08 + seed * 0.12) + seed * 8) * 0.35 * Math.sign(sz || 1);
+        Math.sin(t * (0.08 + seed * 0.12) + seed * 8) *
+          0.35 *
+          Math.sign(sz || 1);
 
       dummy.position.set(px, py, pz);
       dummy.scale.setScalar(scales[i]);
@@ -192,7 +170,6 @@ export default function FloatingField({
 
     mesh.instanceMatrix.needsUpdate = true;
 
-    // Whole-field parallax drift
     if (groupRef.current) {
       groupRef.current.position.x = Math.sin(t * 0.04) * 0.08;
       groupRef.current.position.y = Math.cos(t * 0.05) * 0.05;
