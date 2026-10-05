@@ -4,12 +4,14 @@ import * as THREE from 'three';
 import CameraController from './CameraController.jsx';
 import FloatingField from './FloatingField.jsx';
 import ParticleSystem from './ParticleSystem.jsx';
+import PerfMonitor from './PerfMonitor.jsx';
 import { sceneState } from '../lib/sceneState.js';
 import { getDeviceProfile } from '../hooks/useResponsive.js';
+import { perf } from '../lib/perf.js';
 
 /**
  * Continuous WebGL scene.
- * Phase 14: responsive object placement — never hide WebGL on mobile.
+ * Phase 15: optional dev PerfMonitor (no production HUD).
  */
 export default function ParticleScene({
   reducedMotion = false,
@@ -20,8 +22,6 @@ export default function ParticleScene({
 
   const startX = profile.objectOffsetX ?? (isMobile ? 0.15 : 1.2);
   const startScale = profile.objectScale ?? (isMobile ? 1.15 : 1.55);
-
-  // Mobile: lower the object slightly so it sits behind/under stacked type
   const startY = isMobile ? -0.15 : profile.isTablet ? 0.02 : 0.08;
 
   const groupPos = useRef(new THREE.Vector3(startX, startY, 0));
@@ -36,8 +36,6 @@ export default function ParticleScene({
       ? 1
       : 1 - Math.exp(-damping * 60 * Math.min(delta, 0.05));
 
-    // Blend timeline object with device offset
-    // Mobile keeps object more centered; desktop uses timeline x
     const targetX = isMobile
       ? startX + s.object.x * 0.15
       : profile.isTablet
@@ -65,6 +63,9 @@ export default function ParticleScene({
         isMobile={isMobile}
         isTablet={!!profile.isTablet}
       />
+
+      {/* Dev-only FPS HUD — import.meta.env.DEV gates showMonitor */}
+      {perf.showMonitor ? <PerfMonitor isMobile={isMobile} /> : null}
 
       <FloatingField reducedMotion={reducedMotion} isMobile={isMobile} />
 

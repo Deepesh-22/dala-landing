@@ -1,7 +1,9 @@
 import { useFrame } from '@react-three/fiber';
-import { useLayoutEffect, useMemo, useRef } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { colorForFieldParticle } from './colorField.js';
+import { getTriangleGeometry } from './sharedGeometry.js';
+import { createParticleBasicMaterial, tickMaterialTime } from './particleMaterial.js';
 
 function hash01(i) {
   const x = Math.sin(i * 12.9898 + 78.233) * 43758.5453;
@@ -9,14 +11,13 @@ function hash01(i) {
 }
 
 function fieldCount(isMobile, reducedMotion) {
-  if (reducedMotion) return 180;
-  if (isMobile) return 400;
-  return 900;
+  if (reducedMotion) return 120;
+  if (isMobile) return 280;
+  return 700;
 }
 
 /**
- * Floating triangle field — Phase 5 + 13 color language.
- * Quiet spatial colors, depth-dimmed, never overpower type.
+ * Floating field — shared geometry, GPU noise, throttled matrix updates.
  */
 export default function FloatingField({
   reducedMotion = false,
@@ -24,14 +25,15 @@ export default function FloatingField({
 }) {
   const meshRef = useRef(null);
   const groupRef = useRef(null);
+  const frame = useRef(0);
 
   const count = useMemo(
     () => fieldCount(isMobile, reducedMotion),
     [isMobile, reducedMotion]
   );
 
-  const dummy = useMemo(() => new THREE.Object3D(), []);
-  const colorTmp = useMemo(() => new THREE.Color(), []);
+  const dummy = useRef(new THREE.Object3D()).current;
+  const colorTmp = useRef(new THREE.Color()).current;
 
   const data = useMemo(() => {
     const base = new Float32Array(count * 3);
@@ -73,32 +75,13 @@ export default function FloatingField({
     return { base, scales, speeds, depths, seeds };
   }, [count]);
 
-  const geometry = useMemo(() => {
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute(
-      'position',
-      new THREE.Float32BufferAttribute(
-        [0, 1.15, 0, -1, -0.65, 0, 1, -0.65, 0],
-        3
-      )
-    );
-    geo.setIndex([0, 1, 2]);
-    return geo;
-  }, []);
-
+  const geometry = useMemo(() => getTriangleGeometry(), []);
   const material = useMemo(
-    () =>
-      new THREE.MeshBasicMaterial({
-        color: 0xffffff,
-        wireframe: true,
-        transparent: true,
-        opacity: 0.28,
-        depthWrite: false,
-        side: THREE.DoubleSide,
-        toneMapped: false,
-      }),
+    () => createParticleBasicMaterial({ opacity: 0.28 }),
     []
   );
+
+  useEffect(() => () => material.dispose(), [material]);
 
   useLayoutEffect(() => {
     const mesh = meshRef.current;
@@ -117,11 +100,7 @@ export default function FloatingField({
       dummy.updateMatrix();
       mesh.setMatrixAt(i, dummy.matrix);
 
-      const c = colorForFieldParticle(
-        seeds[i],
-        depths[i],
-        base[i * 3 + 1]
-      );
+      const c = colorForFieldParticle(seeds[i], depths[i], base[i * 3 + 1]);
       colorTmp.setRGB(c.r, c.g, c.b);
       mesh.setColorAt(i, colorTmp);
     }
@@ -137,6 +116,19 @@ export default function FloatingField({
     if (!mesh || reducedMotion) return;
 
     const t = clock.elapsedTime;
+    tickMaterialTime(material, t, 0.04);
+
+    frame.current += 1;
+    // Field moves slowly — update matrices every 2–3 frames
+    const skip = isMobile ? 3 : 2;
+    if (frame.current % skip !== 0) {
+      if (groupRef.current) {
+        groupRef.current.position.x = Math.sin(t * 0.04) * 0.08;
+        groupRef.current.position.y = Math.cos(t * 0.05) * 0.05;
+      }
+      return;
+    }
+
     const { base, scales, speeds, seeds } = data;
 
     for (let i = 0; i < count; i++) {
