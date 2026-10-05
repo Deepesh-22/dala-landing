@@ -3,7 +3,7 @@ import { useLayoutEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { buildMorphTargets } from './shapes.js';
 import { buildColorBuffers } from './colorField.js';
-import { getParticleBudget } from '../hooks/useResponsive.js';
+import { getDeviceProfile, getParticleBudget } from '../hooks/useResponsive.js';
 import { sceneState } from '../lib/sceneState.js';
 
 function hash01(i) {
@@ -17,7 +17,8 @@ function smoothstep(e0, e1, x) {
 }
 
 /**
- * Particle system — spatial color fields + soft additive glow (Phase 13).
+ * Particle system — spatial colors + optional glow.
+ * Phase 14: adaptive count, triangle scale, glow off on mobile/tablet.
  */
 export default function ParticleSystem({ reducedMotion = false }) {
   const meshRef = useRef(null);
@@ -27,24 +28,34 @@ export default function ParticleSystem({ reducedMotion = false }) {
   const frameSkip = useRef(0);
   const prevPos = useRef(null);
 
+  const profile = useMemo(() => getDeviceProfile(), []);
+  const triangleScale = profile.triangleScale ?? 1;
+  const enableGlow = profile.enableGlow && !reducedMotion;
+
   const count = useMemo(() => {
     try {
-      return Math.min(getParticleBudget(), 28000);
+      const budget = getParticleBudget();
+      // Soft ceiling by tier
+      if (profile.isMobile) return Math.min(budget, 20000);
+      if (profile.isTablet) return Math.min(budget, 50000);
+      return Math.min(budget, 100000);
     } catch {
-      return 22000;
+      return profile.isMobile ? 12000 : 28000;
     }
-  }, []);
+  }, [profile]);
 
-  // Glow layer: only brightest particles (~12%)
-  const glowCount = useMemo(
-    () => Math.min(Math.floor(count * 0.12), 3200),
-    [count]
-  );
+  const glowCount = useMemo(() => {
+    if (!enableGlow) return 0;
+    return Math.min(Math.floor(count * 0.12), 3200);
+  }, [count, enableGlow]);
+
+  // Idle frame skip: more aggressive on mobile
+  const idleSkip = profile.isMobile ? 4 : profile.isTablet ? 3 : 3;
 
   const dummy = useMemo(() => new THREE.Object3D(), []);
   const colorTmp = useMemo(() => new THREE.Color(), []);
 
-  const { targets, scales, seeds, brainColors, morphColors, opacities, glows, glowIndices } =
+  const { targets, scales, seeds, brainColors, morphColors, glows, glowIndices } =
     useMemo(() => {
       const targets = buildMorphTargets(count);
       const scales = new Float32Array(count);
@@ -52,22 +63,21 @@ export default function ParticleSystem({ reducedMotion = false }) {
       const brain = targets[0];
 
       const brainBuf = buildColorBuffers(brain, count);
-      // Morph colors: spatial field sampled from abstract / mid shapes so transitions stay coherent
       const morphSrc = targets[2] || targets[1] || brain;
       const morphBuf = buildColorBuffers(morphSrc, count);
 
       for (let i = 0; i < count; i++) {
         seeds[i] = hash01(i);
-        scales[i] = 0.016 + seeds[i] * 0.02;
+        // Smaller triangles on mobile/tablet
+        scales[i] = (0.016 + seeds[i] * 0.02) * triangleScale;
       }
 
-      // Indices of particles that glow, sorted by glow strength
       const ranked = [];
       for (let i = 0; i < count; i++) {
         if (brainBuf.glows[i] > 0.2) ranked.push(i);
       }
       ranked.sort((a, b) => brainBuf.glows[b] - brainBuf.glows[a]);
-      const glowIndices = ranked.slice(0, glowCount);
+      const glowIndices = enableGlow ? ranked.slice(0, glowCount) : [];
 
       return {
         targets,
@@ -75,11 +85,10 @@ export default function ParticleSystem({ reducedMotion = false }) {
         seeds,
         brainColors: brainBuf.colors,
         morphColors: morphBuf.colors,
-        opacities: brainBuf.opacities,
         glows: brainBuf.glows,
         glowIndices,
       };
-    }, [count, glowCount]);
+    }, [count, triangleScale, enableGlow, glowCount]);
 
   const geometry = useMemo(() => {
     const geo = new THREE.BufferGeometry();
@@ -94,7 +103,6 @@ export default function ParticleSystem({ reducedMotion = false }) {
     return geo;
   }, []);
 
-  // Main triangles — wireframe, deep black stays pure (no scene bloom)
   const material = useMemo(
     () =>
       new THREE.MeshBasicMaterial({
@@ -109,7 +117,6 @@ export default function ParticleSystem({ reducedMotion = false }) {
     []
   );
 
-  // Soft additive glow — larger, low opacity, only bright cores
   const glowMaterial = useMemo(
     () =>
       new THREE.MeshBasicMaterial({
@@ -157,7 +164,6 @@ export default function ParticleSystem({ reducedMotion = false }) {
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
     mesh.frustumCulled = false;
 
-    // Glow layer
     const glowMesh = glowRef.current;
     if (glowMesh && glowIndices.length) {
       for (let g = 0; g < glowIndices.length; g++) {
@@ -204,11 +210,12 @@ export default function ParticleSystem({ reducedMotion = false }) {
 
     frameSkip.current += 1;
 
-    if (!isMorphing && !reducedMotion && frameSkip.current % 3 !== 0) {
+    if (!isMorphing && !reducedMotion && frameSkip.current % idleSkip !== 0) {
       return;
     }
 
     const updateGlow = (getPos) => {
+      if (!enableGlow) return;
       const glowMesh = glowRef.current;
       if (!glowMesh || !glowIndices.length) return;
       for (let g = 0; g < glowIndices.length; g++) {
@@ -239,7 +246,6 @@ export default function ParticleSystem({ reducedMotion = false }) {
       const prev = prevPos.current;
       if (!prev) return;
 
-      // Material opacity responds to global intensity, stays restrained
       if (mesh.material) {
         mesh.material.opacity = 0.82 * s.colorIntensity;
       }
@@ -279,7 +285,6 @@ export default function ParticleSystem({ reducedMotion = false }) {
 
     if (reducedMotion && !isMorphing) return;
 
-    // ── Morphing ───────────────────────────────────────────────
     const stateF = Math.min(4.999, Math.max(0, morph));
     const i0 = Math.floor(stateF);
     const i1 = Math.min(5, i0 + 1);
@@ -358,7 +363,6 @@ export default function ParticleSystem({ reducedMotion = false }) {
       dummy.updateMatrix();
       mesh.setMatrixAt(i, dummy.matrix);
 
-      // Spatial colors blend brain → morph field
       colorTmp.setRGB(
         (brainColors[i3] * (1 - coolBlend) + morphColors[i3] * coolBlend) *
           colorI,
@@ -396,13 +400,14 @@ export default function ParticleSystem({ reducedMotion = false }) {
         args={[geometry, material, count]}
         frustumCulled={false}
       />
-      {/* Soft emissive halo — additive, sparse, never neon */}
-      <instancedMesh
-        ref={glowRef}
-        args={[geometry, glowMaterial, Math.max(glowCount, 1)]}
-        frustumCulled={false}
-        renderOrder={1}
-      />
+      {enableGlow ? (
+        <instancedMesh
+          ref={glowRef}
+          args={[geometry, glowMaterial, Math.max(glowCount, 1)]}
+          frustumCulled={false}
+          renderOrder={1}
+        />
+      ) : null}
     </group>
   );
 }

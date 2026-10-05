@@ -1,23 +1,31 @@
 import { useFrame } from '@react-three/fiber';
-import { useRef } from 'react';
+import { useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import CameraController from './CameraController.jsx';
 import FloatingField from './FloatingField.jsx';
 import ParticleSystem from './ParticleSystem.jsx';
 import { sceneState } from '../lib/sceneState.js';
+import { getDeviceProfile } from '../hooks/useResponsive.js';
 
 /**
- * Continuous WebGL scene — black bg, fixed canvas.
- * Camera: CameraController (Phase 12) owns all camera motion.
- * Object placement still driven by sceneState.
+ * Continuous WebGL scene.
+ * Phase 14: responsive object placement — never hide WebGL on mobile.
  */
 export default function ParticleScene({
   reducedMotion = false,
   isMobile = false,
 }) {
   const groupRef = useRef(null);
-  const groupPos = useRef(new THREE.Vector3(1.2, 0.08, 0));
-  const groupScale = useRef(1.55);
+  const profile = useMemo(() => getDeviceProfile(), []);
+
+  const startX = profile.objectOffsetX ?? (isMobile ? 0.15 : 1.2);
+  const startScale = profile.objectScale ?? (isMobile ? 1.15 : 1.55);
+
+  // Mobile: lower the object slightly so it sits behind/under stacked type
+  const startY = isMobile ? -0.15 : profile.isTablet ? 0.02 : 0.08;
+
+  const groupPos = useRef(new THREE.Vector3(startX, startY, 0));
+  const groupScale = useRef(startScale);
 
   useFrame((_, delta) => {
     if (!groupRef.current) return;
@@ -28,9 +36,22 @@ export default function ParticleScene({
       ? 1
       : 1 - Math.exp(-damping * 60 * Math.min(delta, 0.05));
 
-    groupPos.current.x += (s.object.x - groupPos.current.x) * k;
-    groupPos.current.y += (s.object.y - groupPos.current.y) * k;
-    groupScale.current += (s.object.scale - groupScale.current) * k;
+    // Blend timeline object with device offset
+    // Mobile keeps object more centered; desktop uses timeline x
+    const targetX = isMobile
+      ? startX + s.object.x * 0.15
+      : profile.isTablet
+        ? startX * 0.5 + s.object.x * 0.55
+        : s.object.x;
+
+    const targetY = isMobile ? startY + s.object.y * 0.3 : s.object.y;
+    const targetScale = isMobile
+      ? startScale * (0.92 + s.object.scale * 0.08)
+      : s.object.scale;
+
+    groupPos.current.x += (targetX - groupPos.current.x) * k;
+    groupPos.current.y += (targetY - groupPos.current.y) * k;
+    groupScale.current += (targetScale - groupScale.current) * k;
 
     groupRef.current.position.copy(groupPos.current);
     groupRef.current.scale.setScalar(groupScale.current);
@@ -39,11 +60,15 @@ export default function ParticleScene({
   return (
     <>
       <color attach="background" args={['#000000']} />
-      <CameraController reducedMotion={reducedMotion} />
+      <CameraController
+        reducedMotion={reducedMotion}
+        isMobile={isMobile}
+        isTablet={!!profile.isTablet}
+      />
 
       <FloatingField reducedMotion={reducedMotion} isMobile={isMobile} />
 
-      <group ref={groupRef} position={[1.2, 0.08, 0]} scale={1.55}>
+      <group ref={groupRef} position={[startX, startY, 0]} scale={startScale}>
         <ParticleSystem reducedMotion={reducedMotion} />
       </group>
     </>

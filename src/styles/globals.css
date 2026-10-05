@@ -1,4 +1,4 @@
-/* Phase 1–11 — foundation through typographic motion */
+/* Phase 1–14 — foundation through responsive */
 
 :root {
   --bg: #000000;
@@ -152,7 +152,7 @@ body {
   pointer-events: auto;
 }
 
-/* ── Phase 11: Hero typography ─────────────────────────────── */
+/* ── Hero ──────────────────────────────────────────────────── */
 .hero {
   position: relative;
   min-height: 100vh;
@@ -187,7 +187,6 @@ body {
   will-change: opacity, transform;
 }
 
-/* Large editorial heading — weight ~400, tight leading, clamp */
 .hero__title {
   font-size: clamp(4rem, 7vw, 8rem);
   font-weight: 400;
@@ -551,9 +550,47 @@ body {
   }
 }
 
-@media (max-width: 900px) {
+/* ── Phase 14: Tablet (768–1023) ──────────────────────────── */
+@media (min-width: 768px) and (max-width: 1023px) {
   .nav {
-    padding: 1.25rem 1.35rem;
+    padding: 1.4rem 1.75rem;
+  }
+
+  .hero {
+    grid-template-columns: minmax(0, 0.48fr) minmax(0, 0.52fr);
+    padding: 10vh 5vw 10vh 5vw;
+  }
+
+  .hero__title {
+    font-size: clamp(3.25rem, 6vw, 5.5rem);
+  }
+
+  .hero__copy {
+    max-width: 20rem;
+  }
+
+  .manifesto__statement {
+    font-size: clamp(1.5rem, 3.2vw, 2.6rem);
+  }
+
+  .bulb-section {
+    grid-template-columns: minmax(0, 0.48fr) minmax(0, 0.52fr);
+    padding: 12vh 5vw;
+  }
+
+  .bulb-section__title {
+    font-size: clamp(2.4rem, 4.5vw, 3.75rem);
+  }
+
+  .section__title {
+    font-size: clamp(2.4rem, 5vw, 4rem);
+  }
+}
+
+/* ── Phase 14: Mobile (< 768) ──────────────────────────────── */
+@media (max-width: 767px) {
+  .nav {
+    padding: 1.15rem 1.25rem;
   }
 
   .nav__desktop {
@@ -564,10 +601,12 @@ body {
     display: flex;
   }
 
+  /* Stack type; WebGL stays fixed behind — never hidden */
   .hero {
     grid-template-columns: 1fr;
-    padding: 18vh 6vw 10vh;
     align-items: flex-start;
+    padding: 16vh 6vw 8vh;
+    min-height: 100dvh;
   }
 
   .hero__copy {
@@ -575,38 +614,54 @@ body {
   }
 
   .hero__title {
-    font-size: clamp(2.85rem, 11vw, 4.5rem);
+    font-size: clamp(2.6rem, 11vw, 3.75rem);
   }
 
+  .hero__body {
+    max-width: 22rem;
+  }
+
+  /* Keep a spacer so particles show below type */
   .hero__visual {
-    display: none;
+    display: block;
+    min-height: 38vh;
   }
 
   .manifesto {
-    min-height: 140vh;
-    padding: 16vh 5vw;
+    min-height: 130vh;
+    padding: 14vh 5vw;
   }
 
   .manifesto__statement {
-    font-size: clamp(1.4rem, 5.5vw, 2rem);
+    font-size: clamp(1.35rem, 5.2vw, 1.9rem);
   }
 
   .manifesto__statement--secondary {
-    font-size: clamp(1.15rem, 4.2vw, 1.55rem);
+    font-size: clamp(1.1rem, 4vw, 1.45rem);
   }
 
   .bulb-section {
     grid-template-columns: 1fr;
-    min-height: 100vh;
-    padding: 14vh 6vw;
+    min-height: 100dvh;
+    padding: 12vh 6vw;
+    align-items: flex-start;
+  }
+
+  .bulb-section__title {
+    font-size: clamp(2.2rem, 9vw, 3.2rem);
   }
 
   .bulb-section__visual {
-    display: none;
+    display: block;
+    min-height: 32vh;
   }
 
   .section {
-    padding: 14vh 6vw;
+    padding: 12vh 6vw;
     max-width: 100%;
+  }
+
+  .section__title {
+    font-size: clamp(2.2rem, 9vw, 3.4rem);
   }
 }
