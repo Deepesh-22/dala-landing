@@ -11,6 +11,7 @@ import {
 import { getDeviceProfile, getParticleBudget } from '../hooks/useResponsive.js';
 import { sceneState } from '../lib/sceneState.js';
 import { activeCount, perf } from '../lib/perf.js';
+import { interaction } from '../lib/interactionState.js';
 
 function hash01(i) {
   const x = Math.sin(i * 12.9898 + 78.233) * 43758.5453;
@@ -23,13 +24,7 @@ function smoothstep(e0, e1, x) {
 }
 
 /**
- * Phase 15 optimized particle system.
- * - InstancedMesh + shared BufferGeometry
- * - Adaptive density via mesh.count (no realloc)
- * - GPU idle noise (onBeforeCompile)
- * - Color only on morph change
- * - No React state per frame
- * - Dispose materials on unmount
+ * Phase 15–16 optimized particles + subtle velocity / proximity reaction.
  */
 export default function ParticleSystem({ reducedMotion = false }) {
   const meshRef = useRef(null);
@@ -41,7 +36,6 @@ export default function ParticleSystem({ reducedMotion = false }) {
   const prevPos = useRef(null);
   const liveCount = useRef(0);
 
-  // Reused — never allocate in useFrame
   const dummy = useRef(new THREE.Object3D()).current;
   const colorTmp = useRef(new THREE.Color()).current;
 
@@ -102,7 +96,6 @@ export default function ParticleSystem({ reducedMotion = false }) {
     }, [maxCount, triangleScale, enableGlowBase, glowMax]);
 
   const geometry = useMemo(() => getTriangleGeometry(), []);
-
   const material = useMemo(
     () => createParticleBasicMaterial({ opacity: 0.88 }),
     []
@@ -115,7 +108,6 @@ export default function ParticleSystem({ reducedMotion = false }) {
     [enableGlowBase]
   );
 
-  // Dispose materials on unmount (geometry is shared — do not dispose)
   useEffect(() => {
     return () => {
       material.dispose();
@@ -199,7 +191,6 @@ export default function ParticleSystem({ reducedMotion = false }) {
     const isMorphing = morphDelta > 0.00015;
     lastMorph.current = morph;
 
-    // Adaptive live count — no realloc, just draw fewer instances
     const nextLive = Math.min(maxCount, activeCount(maxCount));
     if (nextLive !== liveCount.current) {
       liveCount.current = nextLive;
@@ -207,8 +198,9 @@ export default function ParticleSystem({ reducedMotion = false }) {
     }
     const n = liveCount.current;
 
-    // GPU noise amp: on when idle, off while morphing (CPU owns positions)
-    const noiseAmp = isMorphing || reducedMotion ? 0 : 0.005;
+    // Scroll velocity: slightly stronger noise / scatter, then settle
+    const vel = reducedMotion ? 0 : interaction.scrollVelocity;
+    const noiseAmp = isMorphing || reducedMotion ? 0 : 0.005 + vel * 0.012;
     tickMaterialTime(material, t, noiseAmp);
     if (glowMaterial) tickMaterialTime(glowMaterial, t, noiseAmp * 0.5);
 
@@ -216,24 +208,42 @@ export default function ParticleSystem({ reducedMotion = false }) {
       mesh.material.opacity = 0.82 * s.colorIntensity;
     }
 
-    // Idle: group only + GPU noise — skip CPU matrix storm
+    // Pointer proximity bias — nudge noise amp when pointer is active
+    // (actual displacement stays in ParticleScene parallax for cohesion)
+
     if (!isMorphing) {
       frameSkip.current += 1;
       if (!reducedMotion && groupRef.current) {
-        groupRef.current.rotation.y = t * s.rotation;
+        // Base spin + tiny velocity boost
+        const rotBoost = 1 + vel * 0.35;
+        groupRef.current.rotation.y = t * s.rotation * rotBoost;
         groupRef.current.rotation.x = Math.sin(t * 0.1) * 0.025;
-        groupRef.current.scale.setScalar(1 + Math.sin(t * 0.35) * 0.006);
+        groupRef.current.scale.setScalar(
+          1 + Math.sin(t * 0.35) * 0.006 + vel * 0.01
+        );
       }
 
-      // Occasional soft matrix refresh for particleSize changes
       if (frameSkip.current % (idleSkip * 8) === 0 && prevPos.current) {
         const prev = prevPos.current;
+        // Soft proximity: particles with high seed react a hair more to pointer
+        const px = interaction.smoothX;
+        const py = interaction.smoothY;
         for (let i = 0; i < n; i++) {
           const i3 = i * 3;
-          dummy.position.set(prev[i3], prev[i3 + 1], prev[i3 + 2]);
+          const seed = seeds[i];
+          let x = prev[i3];
+          let y = prev[i3 + 1];
+          let z = prev[i3 + 2];
+          // Extremely subtle local offset toward pointer direction
+          if (!reducedMotion && !profile.isMobile) {
+            const prox = 0.015 * seed;
+            x += px * prox;
+            y += py * prox * 0.7;
+          }
+          dummy.position.set(x, y, z);
           dummy.scale.setScalar(scales[i] * s.particleSize);
           dummy.rotation.set(
-            seeds[i] * 2.1,
+            seeds[i] * 2.1 + (vel * seed * 0.4),
             seeds[i] * 3.4,
             seeds[i] * Math.PI * 2
           );
@@ -247,7 +257,6 @@ export default function ParticleSystem({ reducedMotion = false }) {
 
     if (reducedMotion) return;
 
-    // ── Morphing path (CPU) ────────────────────────────────────
     const stateF = Math.min(4.999, Math.max(0, morph));
     const i0 = Math.floor(stateF);
     const i1 = Math.min(5, i0 + 1);
@@ -257,7 +266,9 @@ export default function ParticleSystem({ reducedMotion = false }) {
     const posB = targets[i1];
 
     const mid = 1 - Math.abs(localT - 0.5) * 2;
-    const scatter = s.distortion * 0.08 + mid * mid * 0.055;
+    // Velocity amplifies scatter slightly when scrolling fast
+    const scatter =
+      s.distortion * 0.08 + mid * mid * 0.055 + vel * 0.04;
     const coolBlend = smoothstep(0.4, 2.2, morph);
     const sizeMul = s.particleSize;
     const colorI = s.colorIntensity;
@@ -270,11 +281,9 @@ export default function ParticleSystem({ reducedMotion = false }) {
     }
     const prev = prevPos.current;
 
-    // Colors only when blend meaningfully changes
     const needColor = Math.abs(morph - lastColorMorph.current) > 0.01;
     if (needColor) lastColorMorph.current = morph;
 
-    // Stride under heavy load: update every 2nd particle, interpolate rest next frames
     const stride = perf.density < 0.6 ? 2 : 1;
 
     for (let i = 0; i < n; i += stride) {
@@ -319,7 +328,7 @@ export default function ParticleSystem({ reducedMotion = false }) {
       dummy.position.set(x, y, z);
       dummy.scale.setScalar(scales[i] * sizeMul * (1 + mid * 0.06 * seed));
 
-      const rotAmp = 0.12 + mid * 0.28;
+      const rotAmp = 0.12 + mid * 0.28 + vel * 0.15;
       dummy.rotation.set(
         t * 0.07 * rotAmp + seed * 2.1,
         t * 0.05 * rotAmp + seed * 3.4,
@@ -346,9 +355,9 @@ export default function ParticleSystem({ reducedMotion = false }) {
     mesh.instanceMatrix.needsUpdate = true;
     if (needColor && mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
 
-    // Glow — only if perf allows
     const glowMesh = glowRef.current;
-    const doGlow = enableGlowBase && perf.allowGlow && glowMesh && glowIndices.length;
+    const doGlow =
+      enableGlowBase && perf.allowGlow && glowMesh && glowIndices.length;
     if (doGlow) {
       const gCount = Math.min(
         glowIndices.length,
@@ -378,11 +387,13 @@ export default function ParticleSystem({ reducedMotion = false }) {
     }
 
     if (groupRef.current) {
-      groupRef.current.rotation.y = t * s.rotation + morph * 0.1;
+      const rotBoost = 1 + vel * 0.3;
+      groupRef.current.rotation.y =
+        t * s.rotation * rotBoost + morph * 0.1;
       groupRef.current.rotation.x =
         Math.sin(t * 0.1) * 0.025 + morph * 0.02;
       groupRef.current.scale.setScalar(
-        1 + Math.sin(t * 0.35) * 0.006 + mid * 0.02
+        1 + Math.sin(t * 0.35) * 0.006 + mid * 0.02 + vel * 0.012
       );
     }
   });

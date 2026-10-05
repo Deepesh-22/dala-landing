@@ -2,12 +2,12 @@ import { useEffect } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { sceneState, updateSceneFromProgress } from '../lib/sceneState.js';
+import { sampleScrollVelocity } from '../lib/interactionState.js';
 
 gsap.registerPlugin(ScrollTrigger);
 
 /**
- * Phase 10 — single ScrollTrigger drives the entire continuous scene.
- * No per-section morph logic; all values come from the master timeline.
+ * Phase 10 + 16 — master scroll timeline + velocity sampling.
  */
 export function useMorphScroll({ reducedMotion = false } = {}) {
   useEffect(() => {
@@ -22,6 +22,7 @@ export function useMorphScroll({ reducedMotion = false } = {}) {
       scrub: 0.85,
       onUpdate: (self) => {
         updateSceneFromProgress(self.progress);
+        sampleScrollVelocity(self.progress, performance.now());
       },
     });
 
