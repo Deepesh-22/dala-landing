@@ -23,3 +23,10 @@ Foundation through lightbulb form + editorial sections
 | 0.64–0.78 | Morph toward bulb |
 | 0.78–0.90 | Lightbulb hold |
 | 0.90–1.00 | Structure / CTA |
+
+## Phase 11 — Typographic motion ✅
+- `useEditorialMotion` — slow premium GSAP (power2/power3, no bounce/elastic)
+- Hero: line-stagger entrance + subtle scroll drift
+- Manifesto / Bulb / Section: scroll-linked opacity, y, light scale
+- Headings: `font-weight: 400`, tight leading, `clamp(4rem, 7vw, 8rem)` on hero
+- Reduced-motion: all text visible, no transforms
