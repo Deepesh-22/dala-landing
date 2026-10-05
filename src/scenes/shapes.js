@@ -1,6 +1,9 @@
 /**
  * Procedural particle targets — same count for every shape (morph-ready).
  * States: brain, distorted, abstract, bulb, scatter, structure
+ *
+ * FIX: no zero-padding — leftover slots are redistributed onto surface
+ * so nothing clusters at the origin.
  */
 
 function hash(n) {
@@ -27,6 +30,19 @@ function fibDir(i, count) {
     y: Math.cos(inclination),
     z: Math.sin(inclination) * Math.sin(azimuth),
   };
+}
+
+/** Fill remaining slots by re-sampling a surface shell (never origin). */
+function fillRemainder(pos, idx, count, radius = 0.95, yScale = 0.7) {
+  while (idx < count) {
+    const d = fibDir(idx + 997, count);
+    const R = radius + hash(idx * 1.13) * 0.28;
+    pos[idx * 3] = d.x * R;
+    pos[idx * 3 + 1] = d.y * R * yScale;
+    pos[idx * 3 + 2] = d.z * R;
+    idx++;
+  }
+  return idx;
 }
 
 export function createSphere(count) {
@@ -173,12 +189,7 @@ export function createBrain(count) {
     idx++;
   }
 
-  while (idx < count) {
-    pos[idx * 3] = 0;
-    pos[idx * 3 + 1] = 0;
-    pos[idx * 3 + 2] = 0;
-    idx++;
-  }
+  fillRemainder(pos, idx, count, 1.05, 0.55);
   return pos;
 }
 
@@ -190,11 +201,12 @@ export function createDistorted(count) {
     const y = base[i * 3 + 1];
     const z = base[i * 3 + 2];
     const n = noise3(x * 3, y * 3, z * 3);
-    const stretch = 1.15 + n * 0.25;
-    const twist = n * 0.35;
-    pos[i * 3] = x * stretch + Math.sin(y * 4) * 0.12 + twist * 0.2;
-    pos[i * 3 + 1] = y * (0.9 + n * 0.2) + Math.cos(x * 3) * 0.1;
-    pos[i * 3 + 2] = z * stretch * 0.95 + Math.sin(x * 5 + y * 2) * 0.15;
+    // Softer stretch than before — less explosion
+    const stretch = 1.08 + n * 0.14;
+    const twist = n * 0.18;
+    pos[i * 3] = x * stretch + Math.sin(y * 4) * 0.06 + twist * 0.1;
+    pos[i * 3 + 1] = y * (0.94 + n * 0.12) + Math.cos(x * 3) * 0.05;
+    pos[i * 3 + 2] = z * stretch * 0.97 + Math.sin(x * 5 + y * 2) * 0.08;
   }
   return pos;
 }
@@ -236,10 +248,8 @@ export function createBulb(count) {
 
   let idx = 0;
 
-  // --- Rounded glass head (upper sphere, slightly elongated) ---
   for (let i = 0; i < nGlass; i++) {
     const d = fibDir(i, nGlass);
-    // Bias samples to upper hemisphere more
     let ly = d.y;
     if (ly < -0.15) ly = -0.15 + (ly + 0.15) * 0.35;
 
@@ -254,7 +264,6 @@ export function createBulb(count) {
     idx++;
   }
 
-  // --- Inner filament / brighter core ---
   for (let j = 0; j < nInner && idx < count; j++) {
     const d = fibDir(j + 7, nInner);
     const r = 0.22 + hash(j) * 0.2;
@@ -264,11 +273,9 @@ export function createBulb(count) {
     idx++;
   }
 
-  // --- Narrowing neck ---
   for (let i = 0; i < nNeck && idx < count; i++) {
     const t = i / Math.max(nNeck - 1, 1);
     const a = hash(i * 0.73) * Math.PI * 2;
-    // Taper from glass bottom to screw
     const radius = 0.32 * (1 - t * 0.55) + 0.08;
     const y = 0.12 - t * 0.55;
     const wobble = noise3(Math.cos(a), y, Math.sin(a)) * 0.02;
@@ -278,7 +285,6 @@ export function createBulb(count) {
     idx++;
   }
 
-  // --- Screw base (helical ridges) ---
   for (let i = 0; i < nScrew && idx < count; i++) {
     const t = i / Math.max(nScrew - 1, 1);
     const turns = 3.2;
@@ -291,7 +297,6 @@ export function createBulb(count) {
     idx++;
   }
 
-  // --- Flat contact tip ---
   for (let i = 0; i < nBase && idx < count; i++) {
     const a = (i / Math.max(nBase, 1)) * Math.PI * 2;
     const r = Math.sqrt(hash(i * 1.1)) * 0.18;
@@ -301,7 +306,6 @@ export function createBulb(count) {
     idx++;
   }
 
-  // --- Soft outer glow shell (sparse, slightly larger than glass) ---
   for (let j = 0; j < nGlow && idx < count; j++) {
     const d = fibDir(j + 31, Math.max(nGlow, 1));
     let ly = d.y;
@@ -313,13 +317,7 @@ export function createBulb(count) {
     idx++;
   }
 
-  while (idx < count) {
-    pos[idx * 3] = 0;
-    pos[idx * 3 + 1] = 0;
-    pos[idx * 3 + 2] = 0;
-    idx++;
-  }
-
+  fillRemainder(pos, idx, count, 0.95, 0.85);
   return pos;
 }
 
@@ -373,12 +371,7 @@ export function createStructure(count) {
     idx++;
   }
 
-  while (idx < count) {
-    pos[idx * 3] = 0;
-    pos[idx * 3 + 1] = 0;
-    pos[idx * 3 + 2] = 0;
-    idx++;
-  }
+  fillRemainder(pos, idx, count, 0.9, 0.75);
   return pos;
 }
 

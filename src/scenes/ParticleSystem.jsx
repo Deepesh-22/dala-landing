@@ -72,18 +72,23 @@ function colorForBrainPoint(x, y, z, seed) {
 
 /**
  * Particle system — driven only by sceneState from the master timeline.
+ * FIXES: softer scatter, smaller lag, spring damping, calm rotation,
+ * lower particle cap, gentler idle breath.
  */
 export default function ParticleSystem({ reducedMotion = false }) {
   const meshRef = useRef(null);
   const groupRef = useRef(null);
   const lastMorph = useRef(-1);
   const frameSkip = useRef(0);
+  // Spring state — previous positions for damping
+  const prevPos = useRef(null);
 
   const count = useMemo(() => {
     try {
-      return Math.min(getParticleBudget(), 48000);
+      // Cap lower to keep 60fps during morph
+      return Math.min(getParticleBudget(), 28000);
     } catch {
-      return 36000;
+      return 22000;
     }
   }, []);
 
@@ -169,6 +174,10 @@ export default function ParticleSystem({ reducedMotion = false }) {
     if (!mesh) return;
     const pos = targets[0];
 
+    // Init spring buffer to brain positions
+    prevPos.current = new Float32Array(count * 3);
+    prevPos.current.set(pos);
+
     for (let i = 0; i < count; i++) {
       dummy.position.set(pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2]);
       dummy.scale.setScalar(scales[i]);
@@ -205,16 +214,52 @@ export default function ParticleSystem({ reducedMotion = false }) {
     lastMorph.current = morph;
 
     frameSkip.current += 1;
-    if (!isMorphing && !reducedMotion && frameSkip.current % 2 === 0) {
-      if (groupRef.current) {
-        groupRef.current.rotation.y = t * s.rotation;
-        groupRef.current.rotation.x = Math.sin(t * 0.1) * 0.03;
-        groupRef.current.scale.setScalar(1 + Math.sin(t * 0.45) * 0.012);
-      }
+
+    // Idle: only update group rotation / breath every 3rd frame
+    if (!isMorphing && !reducedMotion && frameSkip.current % 3 !== 0) {
       return;
     }
+
+    if (!isMorphing && !reducedMotion) {
+      if (groupRef.current) {
+        groupRef.current.rotation.y = t * s.rotation;
+        groupRef.current.rotation.x = Math.sin(t * 0.1) * 0.025;
+        // Gentler breath
+        groupRef.current.scale.setScalar(1 + Math.sin(t * 0.35) * 0.006);
+      }
+
+      // Still need light particle float when idle — every 3rd frame is enough
+      const prev = prevPos.current;
+      if (!prev) return;
+
+      for (let i = 0; i < count; i++) {
+        const seed = seeds[i];
+        const i3 = i * 3;
+        let x = prev[i3];
+        let y = prev[i3 + 1];
+        let z = prev[i3 + 2];
+
+        // Micro idle drift
+        x += Math.sin(t * 0.45 + seed * 6) * 0.006 * (seed - 0.5);
+        y += Math.cos(t * 0.38 + seed * 4) * 0.005;
+
+        dummy.position.set(x, y, z);
+        dummy.scale.setScalar(scales[i] * s.particleSize);
+        dummy.rotation.set(
+          t * 0.06 + seed * 2.1,
+          t * 0.04 + seed * 3.4,
+          seed * Math.PI * 2
+        );
+        dummy.updateMatrix();
+        mesh.setMatrixAt(i, dummy.matrix);
+      }
+      mesh.instanceMatrix.needsUpdate = true;
+      return;
+    }
+
     if (reducedMotion && !isMorphing) return;
 
+    // ── Morphing path ──────────────────────────────────────────
     const stateF = Math.min(4.999, Math.max(0, morph));
     const i0 = Math.floor(stateF);
     const i1 = Math.min(5, i0 + 1);
@@ -224,68 +269,96 @@ export default function ParticleSystem({ reducedMotion = false }) {
     const posB = targets[i1];
 
     const mid = 1 - Math.abs(localT - 0.5) * 2;
-    // Distortion from master state + mid-transition peak
+
+    // MUCH softer scatter — no explosion
     const scatter =
-      Math.max(s.distortion * 0.2, mid * mid * (0.12 + localT * 0.16));
+      s.distortion * 0.08 + mid * mid * 0.055;
 
     const coolBlend = smoothstep(0.4, 2.2, morph);
     const sizeMul = s.particleSize;
     const colorI = s.colorIntensity;
 
+    // Spring params
+    const spring = 0.14; // higher = snappier, lower = silkier
+    const damp = 0.78;
+
+    if (!prevPos.current) {
+      prevPos.current = new Float32Array(count * 3);
+      prevPos.current.set(posA);
+    }
+    const prev = prevPos.current;
+
+    // Smaller lag window — particles stay more cohesive
+    const lagWindow = 0.16;
+
     for (let i = 0; i < count; i++) {
       const seed = seeds[i];
-      const lagWindow = 0.38;
+      const i3 = i * 3;
+
       const delayed = smoothstep(
         0,
         1,
         (localT - seed * lagWindow) / (1 - lagWindow)
       );
 
-      const ax = posA[i * 3];
-      const ay = posA[i * 3 + 1];
-      const az = posA[i * 3 + 2];
-      const bx = posB[i * 3];
-      const by = posB[i * 3 + 1];
-      const bz = posB[i * 3 + 2];
+      const ax = posA[i3];
+      const ay = posA[i3 + 1];
+      const az = posA[i3 + 2];
+      const bx = posB[i3];
+      const by = posB[i3 + 1];
+      const bz = posB[i3 + 2];
 
-      let x = ax + (bx - ax) * delayed;
-      let y = ay + (by - ay) * delayed;
-      let z = az + (bz - az) * delayed;
+      let tx = ax + (bx - ax) * delayed;
+      let ty = ay + (by - ay) * delayed;
+      let tz = az + (bz - az) * delayed;
 
-      if (!reducedMotion && scatter > 0.008) {
-        const n1 = Math.sin(t * 0.85 + seed * 14.0 + x * 3.5);
-        const n2 = Math.cos(t * 0.65 + seed * 9.0 + y * 4.2);
-        const n3 = Math.sin(t * 0.5 + seed * 17.0 + z * 2.8);
-        const n4 = Math.sin(t * 1.2 + seed * 6.0);
-        const amp = scatter * (0.7 + seed * 0.9);
-        x += (n1 + n4 * 0.4) * amp;
-        y += n2 * amp * 0.85;
-        z += n3 * amp * 0.9;
+      if (!reducedMotion && scatter > 0.004) {
+        const n1 = Math.sin(t * 0.7 + seed * 12.0 + ax * 2.5);
+        const n2 = Math.cos(t * 0.55 + seed * 8.0 + ay * 3.0);
+        const n3 = Math.sin(t * 0.4 + seed * 15.0 + az * 2.2);
+        const amp = scatter * (0.55 + seed * 0.55);
+        tx += n1 * amp;
+        ty += n2 * amp * 0.8;
+        tz += n3 * amp * 0.85;
       }
 
-      if (!reducedMotion && !isMorphing) {
-        x += Math.sin(t * 0.5 + seed * 6) * 0.01 * (seed - 0.5);
-        y += Math.cos(t * 0.4 + seed * 4) * 0.008;
-      }
+      // Spring toward target (kills snap / jitter)
+      const dx = tx - prev[i3];
+      const dy = ty - prev[i3 + 1];
+      const dz = tz - prev[i3 + 2];
+
+      const x = prev[i3] + dx * spring;
+      const y = prev[i3 + 1] + dy * spring;
+      const z = prev[i3 + 2] + dz * spring;
+
+      // Soft damping of residual motion
+      prev[i3] = prev[i3] * (1 - damp) * 0 + x; // write back
+      prev[i3 + 1] = y;
+      prev[i3 + 2] = z;
 
       dummy.position.set(x, y, z);
-      dummy.scale.setScalar(scales[i] * sizeMul * (1 + mid * 0.12 * seed));
+      dummy.scale.setScalar(
+        scales[i] * sizeMul * (1 + mid * 0.06 * seed)
+      );
+
+      // Calm rotation — no frantic spin mid-morph
+      const rotAmp = 0.12 + mid * 0.28;
       dummy.rotation.set(
-        t * (0.12 + seed * 0.25) * (0.25 + mid * 1.2) + seed * 3,
-        t * (0.08 + seed * 0.18) * (0.25 + mid * 1.1) + seed * 5,
-        seed * Math.PI * 2 + mid * seed
+        t * 0.07 * rotAmp + seed * 2.1,
+        t * 0.05 * rotAmp + seed * 3.4,
+        seed * Math.PI * 2
       );
       dummy.updateMatrix();
       mesh.setMatrixAt(i, dummy.matrix);
 
       colorTmp.setRGB(
-        (brainColors[i * 3] * (1 - coolBlend) + morphColors[i * 3] * coolBlend) *
+        (brainColors[i3] * (1 - coolBlend) + morphColors[i3] * coolBlend) *
           colorI,
-        (brainColors[i * 3 + 1] * (1 - coolBlend) +
-          morphColors[i * 3 + 1] * coolBlend) *
+        (brainColors[i3 + 1] * (1 - coolBlend) +
+          morphColors[i3 + 1] * coolBlend) *
           colorI,
-        (brainColors[i * 3 + 2] * (1 - coolBlend) +
-          morphColors[i * 3 + 2] * coolBlend) *
+        (brainColors[i3 + 2] * (1 - coolBlend) +
+          morphColors[i3 + 2] * coolBlend) *
           colorI
       );
       mesh.setColorAt(i, colorTmp);
@@ -295,10 +368,10 @@ export default function ParticleSystem({ reducedMotion = false }) {
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
 
     if (groupRef.current && !reducedMotion) {
-      groupRef.current.rotation.y = t * s.rotation + morph * 0.15;
+      groupRef.current.rotation.y = t * s.rotation + morph * 0.1;
       groupRef.current.rotation.x =
-        Math.sin(t * 0.1) * 0.03 + morph * 0.03;
-      const breath = 1 + Math.sin(t * 0.45) * 0.012 + mid * 0.05;
+        Math.sin(t * 0.1) * 0.025 + morph * 0.02;
+      const breath = 1 + Math.sin(t * 0.35) * 0.006 + mid * 0.02;
       groupRef.current.scale.setScalar(breath);
     }
   });
