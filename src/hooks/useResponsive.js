@@ -1,9 +1,5 @@
 import { useEffect, useState } from 'react';
 
-/**
- * Particle budgets sized for reference look:
- * dense enough for solid brain, triangles still readable.
- */
 function getSnapshot() {
   if (typeof window === 'undefined') {
     return {
@@ -14,8 +10,8 @@ function getSnapshot() {
       isDesktop: true,
       dpr: 1,
       reducedMotion: false,
-      particleBudget: 42000,
-      triangleScale: 1.4,
+      particleBudget: 40000,
+      triangleScale: 1.25,
       enableGlow: true,
       objectOffsetX: 1.15,
       objectScale: 1.55,
@@ -41,24 +37,24 @@ function getSnapshot() {
   const isDesktop = width >= 1024;
 
   let particleBudget;
-  if (width < 480) particleBudget = 8000;
-  else if (width < 640) particleBudget = 11000;
-  else if (width < 768) particleBudget = 14000;
-  else if (width < 900) particleBudget = 24000;
-  else if (width < 1024) particleBudget = 32000;
-  else if (width < 1440) particleBudget = 40000;
-  else if (width < 1800) particleBudget = 45000;
-  else particleBudget = 50000;
+  if (width < 480) particleBudget = 7000;
+  else if (width < 640) particleBudget = 10000;
+  else if (width < 768) particleBudget = 12000;
+  else if (width < 900) particleBudget = 22000;
+  else if (width < 1024) particleBudget = 28000;
+  else if (width < 1440) particleBudget = 38000;
+  else if (width < 1800) particleBudget = 42000;
+  else particleBudget = 46000;
 
   const cores = navigator.hardwareConcurrency || 4;
-  if (cores <= 2) particleBudget = Math.min(particleBudget, 10000);
-  else if (cores <= 4 && isMobile) particleBudget = Math.min(particleBudget, 12000);
-  if (reducedMotion) particleBudget = Math.min(particleBudget, 8000);
+  if (cores <= 2) particleBudget = Math.min(particleBudget, 9000);
+  else if (cores <= 4 && isMobile) particleBudget = Math.min(particleBudget, 11000);
+  if (reducedMotion) particleBudget = Math.min(particleBudget, 7000);
 
-  // Scale so individual triangles read like reference
-  let triangleScale = 1.4;
-  if (isMobile) triangleScale = 1.15;
-  else if (isTablet) triangleScale = 1.25;
+  // Smaller scale = mosaic of faces, not giant yellow shards
+  let triangleScale = 1.25;
+  if (isMobile) triangleScale = 1.05;
+  else if (isTablet) triangleScale = 1.15;
 
   const enableGlow = isDesktop && !reducedMotion && cores > 4;
 

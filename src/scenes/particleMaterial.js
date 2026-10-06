@@ -1,31 +1,32 @@
 import * as THREE from 'three';
 
 /**
- * Reference style: SOLID filled triangles (not wireframe).
- * Slight transparency, depthWrite to avoid white overdraw.
+ * Solid filled triangles with per-instance vertex colors.
+ * vertexColors MUST be true or all particles render the same color.
  */
 
 export function createParticleBasicMaterial({
-  opacity = 0.92,
+  opacity = 0.9,
   additive = false,
   wireframe = false,
 } = {}) {
   const mat = new THREE.MeshBasicMaterial({
     color: 0xffffff,
-    wireframe: false, // ALWAYS solid filled
+    vertexColors: true, // CRITICAL — enables instanceColor
+    wireframe: false,
     transparent: true,
     opacity,
     depthWrite: !additive,
     depthTest: true,
     side: THREE.DoubleSide,
     toneMapped: false,
-    alphaTest: additive ? 0.02 : 0.06,
+    alphaTest: additive ? 0.02 : 0.05,
     blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending,
   });
 
   mat.onBeforeCompile = (shader) => {
     shader.uniforms.uTime = { value: 0 };
-    shader.uniforms.uNoiseAmp = { value: 0.001 };
+    shader.uniforms.uNoiseAmp = { value: 0.0008 };
     mat.userData.shader = shader;
 
     shader.vertexShader = shader.vertexShader
@@ -46,15 +47,15 @@ export function createParticleBasicMaterial({
           vec3 ip = vec3(instanceMatrix[3].xyz);
           float seed = hashNoise(ip.x * 12.9898 + ip.y * 78.233 + ip.z * 37.719);
           if (uNoiseAmp > 0.0001) {
-            transformed.x += sin(uTime * 0.28 + seed * 6.28) * uNoiseAmp * (seed - 0.5);
-            transformed.y += cos(uTime * 0.22 + seed * 4.0) * uNoiseAmp * 0.5;
+            transformed.x += sin(uTime * 0.25 + seed * 6.28) * uNoiseAmp * (seed - 0.5);
+            transformed.y += cos(uTime * 0.2 + seed * 4.0) * uNoiseAmp * 0.5;
           }
         #endif
         `
       );
   };
 
-  mat.customProgramCacheKey = () => 'dala-solid-tri-v4';
+  mat.customProgramCacheKey = () => 'dala-solid-vcolors-v5';
   return mat;
 }
 
@@ -63,7 +64,6 @@ export function createParticleMaterial(opts = {}) {
     ...opts,
     additive: true,
     opacity: 0.1,
-    wireframe: false,
   });
 }
 
