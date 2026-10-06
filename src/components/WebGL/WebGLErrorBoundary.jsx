@@ -3,19 +3,23 @@ import { Component } from 'react';
 export default class WebGLErrorBoundary extends Component {
   constructor(props) {
     super(props);
-    this.state = { hasError: false };
+    this.state = { hasError: false, message: '' };
   }
 
-  static getDerivedStateFromError() {
-    return { hasError: true };
+  static getDerivedStateFromError(error) {
+    return { hasError: true, message: error?.message || String(error) };
   }
 
-  componentDidCatch(error) {
-    console.warn('[WebGL] crash suppressed:', error?.message || error);
+  componentDidCatch(error, info) {
+    console.error('[WebGL] crash:', error?.message || error, info?.componentStack);
   }
 
   render() {
-    if (this.state.hasError) return this.props.fallback ?? null;
+    if (this.state.hasError) {
+      // Still show children attempt is gone — use fallback
+      // but log so we can see in console
+      return this.props.fallback ?? null;
+    }
     return this.props.children;
   }
 }
