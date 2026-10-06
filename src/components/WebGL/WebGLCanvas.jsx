@@ -1,49 +1,63 @@
 import { Canvas } from '@react-three/fiber';
-import { Suspense, useEffect } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import ParticleScene from '../../scenes/ParticleScene.jsx';
 import { getCappedDpr, useResponsive } from '../../hooks/useResponsive.js';
 import WebGLErrorBoundary from './WebGLErrorBoundary.jsx';
 import FallbackVisual from './FallbackVisual.jsx';
 
-/**
- * Phase H — DPR capped, orientation resize, single mount (no StrictMode).
- * DPR: Math.min(devicePixelRatio, 2) with tighter mobile caps via getCappedDpr().
- */
+function canCreateWebGL() {
+  try {
+    const c = document.createElement('canvas');
+    return !!(c.getContext('webgl2') || c.getContext('webgl'));
+  } catch {
+    return false;
+  }
+}
+
 export default function WebGLCanvas({ reducedMotion = false }) {
   const { isMobile, isTablet } = useResponsive();
+  const [supported] = useState(() => canCreateWebGL());
   const dpr = reducedMotion ? 1 : getCappedDpr();
 
   useEffect(() => {
-    const onOrient = () => {
-      // Let R3F + App Lenis handlers refresh layout
-      window.dispatchEvent(new Event('resize'));
-    };
+    const onOrient = () => window.dispatchEvent(new Event('resize'));
     window.addEventListener('orientationchange', onOrient);
-    window.addEventListener('webgl-resize', onOrient);
-    return () => {
-      window.removeEventListener('orientationchange', onOrient);
-      window.removeEventListener('webgl-resize', onOrient);
-    };
+    return () => window.removeEventListener('orientationchange', onOrient);
   }, []);
+
+  const glConfig = useMemo(
+    () => ({
+      antialias: !isMobile,
+      alpha: false,
+      powerPreference: 'high-performance',
+      failIfMajorPerformanceCaveat: false,
+      stencil: false,
+      depth: true,
+      preserveDrawingBuffer: false,
+    }),
+    [isMobile]
+  );
+
+  if (!supported) {
+    return (
+      <div className="webgl-root" aria-hidden="true">
+        <FallbackVisual />
+      </div>
+    );
+  }
 
   return (
     <div className="webgl-root" aria-hidden="true">
       <WebGLErrorBoundary fallback={<FallbackVisual />}>
         <Canvas
           dpr={[1, dpr]}
-          gl={{
-            antialias: !isMobile,
-            alpha: false,
-            powerPreference: isMobile ? 'low-power' : 'default',
-            failIfMajorPerformanceCaveat: false,
-            stencil: false,
-            depth: true,
-          }}
+          gl={glConfig}
+          frameloop="always"
           camera={{
-            fov: isMobile ? 50 : 45,
+            fov: isMobile ? 48 : 42,
             near: 0.1,
-            far: 100,
-            position: [-0.15, 0.2, isMobile ? 5.2 : 4.4],
+            far: 80,
+            position: isMobile ? [0, 0.15, 5.2] : [-0.2, 0.15, 4.2],
           }}
           style={{
             position: 'absolute',
@@ -54,10 +68,10 @@ export default function WebGLCanvas({ reducedMotion = false }) {
             background: '#000',
           }}
           onCreated={({ gl, camera }) => {
-            gl.setClearColor(0x000000, 1);
-            const cap = reducedMotion ? 1 : getCappedDpr();
-            gl.setPixelRatio(cap);
-            camera.lookAt(isMobile ? 0.3 : 0.85, 0.05, 0);
+            gl.setClearColor('#000000', 1);
+            gl.setPixelRatio(reducedMotion ? 1 : getCappedDpr());
+            camera.lookAt(isMobile ? 0.2 : 1.0, 0.05, 0);
+            camera.updateProjectionMatrix();
           }}
         >
           <Suspense fallback={null}>

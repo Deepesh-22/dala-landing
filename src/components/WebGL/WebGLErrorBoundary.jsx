@@ -1,23 +1,25 @@
 import { Component } from 'react';
 
+/**
+ * Catches WebGL/React errors once. Never re-enters children after failure
+ * (avoids Maximum call stack size exceeded loops).
+ */
 export default class WebGLErrorBoundary extends Component {
   constructor(props) {
     super(props);
-    this.state = { hasError: false, message: '' };
+    this.state = { hasError: false };
   }
 
-  static getDerivedStateFromError(error) {
-    return { hasError: true, message: error?.message || String(error) };
+  static getDerivedStateFromError() {
+    return { hasError: true };
   }
 
-  componentDidCatch(error, info) {
-    console.error('[WebGL] crash:', error?.message || error, info?.componentStack);
+  componentDidCatch(error) {
+    console.warn('[WebGL] suppressed:', error?.message || error);
   }
 
   render() {
     if (this.state.hasError) {
-      // Still show children attempt is gone — use fallback
-      // but log so we can see in console
       return this.props.fallback ?? null;
     }
     return this.props.children;

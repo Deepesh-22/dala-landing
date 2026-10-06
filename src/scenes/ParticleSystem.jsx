@@ -1,13 +1,12 @@
 import { useFrame } from '@react-three/fiber';
-import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { useLayoutEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { buildMorphTargets } from './shapes.js';
 import { buildColorBuffers } from './colorField.js';
 import { getTriangleGeometry } from './sharedGeometry.js';
-import { createParticleBasicMaterial } from './particleMaterial.js';
 import { getDeviceProfile } from '../hooks/useResponsive.js';
 import { sceneState } from '../lib/sceneState.js';
-import { activeCount, perf, sampleFrame } from '../lib/perf.js';
+import { activeCount, sampleFrame } from '../lib/perf.js';
 import { interaction } from '../lib/interactionState.js';
 
 function hash01(i) {
@@ -21,8 +20,7 @@ function smoothstep(e0, e1, x) {
 }
 
 /**
- * Solid filled multi-hue triangles.
- * Hardened against crash → black screen.
+ * Solid filled multi-hue triangles — must always paint something visible.
  */
 export default function ParticleSystem({ reducedMotion = false }) {
   const meshRef = useRef(null);
@@ -34,122 +32,96 @@ export default function ParticleSystem({ reducedMotion = false }) {
   const liveCount = useRef(0);
   const ready = useRef(false);
 
-  const dummy = useRef(new THREE.Object3D()).current;
-  const colorTmp = useRef(new THREE.Color()).current;
+  const dummy = useMemo(() => new THREE.Object3D(), []);
+  const colorTmp = useMemo(() => new THREE.Color(), []);
 
   const profile = useMemo(() => getDeviceProfile(), []);
   const triangleScale = profile.triangleScale ?? 1.35;
   const isMobile = !!profile.isMobile;
 
-  // Safer budgets — avoid OOM / long freeze on morph build
   const maxCount = useMemo(() => {
-    if (profile.isMobile) return 8000;
-    if (profile.isTablet) return 18000;
-    return 28000;
+    if (profile.isMobile) return 6000;
+    if (profile.isTablet) return 14000;
+    return 22000;
   }, [profile]);
 
-  const idleSkip = isMobile ? 4 : 2;
-
   const { targets, scales, seeds, brainColors, morphColors } = useMemo(() => {
-    try {
-      const targets = buildMorphTargets(maxCount);
-      const scales = new Float32Array(maxCount);
-      const seeds = new Float32Array(maxCount);
-      const brain = targets[0];
-      const brainBuf = buildColorBuffers(brain, maxCount);
-      const morphSrc = targets[3] || targets[2] || brain;
-      const morphBuf = buildColorBuffers(morphSrc, maxCount);
+    const targets = buildMorphTargets(maxCount);
+    const scales = new Float32Array(maxCount);
+    const seeds = new Float32Array(maxCount);
+    const brain = targets[0];
+    const brainBuf = buildColorBuffers(brain, maxCount);
+    const morphSrc = targets[3] || targets[0];
+    const morphBuf = buildColorBuffers(morphSrc, maxCount);
 
-      for (let i = 0; i < maxCount; i++) {
-        seeds[i] = hash01(i);
-        // Medium solid faces like reference
-        scales[i] = (0.028 + seeds[i] * 0.03) * triangleScale;
-      }
-
-      return {
-        targets,
-        scales,
-        seeds,
-        brainColors: brainBuf.colors,
-        morphColors: morphBuf.colors,
-      };
-    } catch (err) {
-      console.error('[ParticleSystem] init failed', err);
-      // Minimal fallback so mesh still mounts
-      const n = Math.min(maxCount, 2000);
-      const targets = [new Float32Array(n * 3)];
-      for (let i = 0; i < n; i++) {
-        const t = i / n;
-        const a = t * Math.PI * 2 * 7;
-        targets[0][i * 3] = Math.cos(a) * (0.5 + t * 0.5);
-        targets[0][i * 3 + 1] = Math.sin(a * 0.7) * 0.4;
-        targets[0][i * 3 + 2] = Math.sin(a) * 0.5;
-      }
-      const scales = new Float32Array(n).fill(0.04);
-      const seeds = new Float32Array(n);
-      const brainColors = new Float32Array(n * 3);
-      for (let i = 0; i < n; i++) {
-        seeds[i] = hash01(i);
-        brainColors[i * 3] = 0.95;
-        brainColors[i * 3 + 1] = 0.75;
-        brainColors[i * 3 + 2] = 0.1;
-      }
-      return {
-        targets,
-        scales,
-        seeds,
-        brainColors,
-        morphColors: brainColors,
-      };
+    for (let i = 0; i < maxCount; i++) {
+      seeds[i] = hash01(i);
+      // Readable solid faces
+      scales[i] = (0.032 + seeds[i] * 0.028) * triangleScale;
     }
+
+    return {
+      targets,
+      scales,
+      seeds,
+      brainColors: brainBuf.colors,
+      morphColors: morphBuf.colors,
+    };
   }, [maxCount, triangleScale]);
 
-  const count = scales.length;
-
+  const count = maxCount;
   const geometry = useMemo(() => getTriangleGeometry(), []);
+
+  // Material via R3F props — more reliable than external MeshBasicMaterial
   const material = useMemo(
-    () => createParticleBasicMaterial({ opacity: 0.95 }),
+    () =>
+      new THREE.MeshBasicMaterial({
+        color: 0xffffff,
+        vertexColors: true,
+        wireframe: false,
+        transparent: true,
+        opacity: 0.92,
+        depthWrite: true,
+        depthTest: true,
+        side: THREE.DoubleSide,
+        toneMapped: false,
+      }),
     []
   );
-
-  useEffect(() => () => material.dispose(), [material]);
 
   useLayoutEffect(() => {
     const mesh = meshRef.current;
     if (!mesh || !targets?.[0]) return;
 
-    try {
-      const pos = targets[0];
-      prevPos.current = new Float32Array(count * 3);
-      prevPos.current.set(pos.subarray(0, count * 3));
-      liveCount.current = count;
+    const pos = targets[0];
+    prevPos.current = new Float32Array(count * 3);
+    prevPos.current.set(pos);
+    liveCount.current = count;
 
-      for (let i = 0; i < count; i++) {
-        dummy.position.set(pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2]);
-        dummy.scale.setScalar(scales[i]);
-        dummy.rotation.set(
-          seeds[i] * Math.PI * 2,
-          hash01(i + 2) * Math.PI * 2,
-          hash01(i + 3) * Math.PI * 2
-        );
-        dummy.updateMatrix();
-        mesh.setMatrixAt(i, dummy.matrix);
-        colorTmp.setRGB(
-          brainColors[i * 3],
-          brainColors[i * 3 + 1],
-          brainColors[i * 3 + 2]
-        );
-        mesh.setColorAt(i, colorTmp);
-      }
+    for (let i = 0; i < count; i++) {
+      dummy.position.set(pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2]);
+      dummy.scale.setScalar(scales[i]);
+      dummy.rotation.set(
+        seeds[i] * Math.PI * 2,
+        hash01(i + 2) * Math.PI * 2,
+        hash01(i + 3) * Math.PI * 2
+      );
+      dummy.updateMatrix();
+      mesh.setMatrixAt(i, dummy.matrix);
 
-      mesh.count = count;
-      mesh.instanceMatrix.needsUpdate = true;
-      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-      mesh.frustumCulled = false;
-      ready.current = true;
-    } catch (err) {
-      console.error('[ParticleSystem] layout failed', err);
+      colorTmp.setRGB(
+        brainColors[i * 3],
+        brainColors[i * 3 + 1],
+        brainColors[i * 3 + 2]
+      );
+      mesh.setColorAt(i, colorTmp);
     }
+
+    mesh.count = count;
+    mesh.instanceMatrix.needsUpdate = true;
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    mesh.frustumCulled = false;
+    ready.current = true;
   }, [count, targets, scales, seeds, brainColors, dummy, colorTmp]);
 
   useFrame(({ clock }) => {
@@ -162,7 +134,7 @@ export default function ParticleSystem({ reducedMotion = false }) {
     const s = sceneState;
     const morph = reducedMotion ? 0 : s.morph ?? 0;
     const morphDelta = Math.abs(morph - lastMorph.current);
-    const isMorphing = morphDelta > 0.00015;
+    const isMorphing = morphDelta > 0.0002;
     lastMorph.current = morph;
 
     const nextLive = Math.min(count, activeCount(count));
@@ -172,8 +144,11 @@ export default function ParticleSystem({ reducedMotion = false }) {
     }
     const n = liveCount.current;
 
-    if (mesh.material) mesh.material.opacity = 0.95 * (s.colorIntensity ?? 1);
+    if (mesh.material) {
+      mesh.material.opacity = 0.92 * (s.colorIntensity ?? 1);
+    }
 
+    // Idle spin + light matrix refresh
     if (!isMorphing) {
       frameSkip.current += 1;
       if (!reducedMotion && groupRef.current) {
@@ -181,12 +156,11 @@ export default function ParticleSystem({ reducedMotion = false }) {
         groupRef.current.rotation.x = Math.sin(t * 0.06) * 0.012;
       }
 
-      if (frameSkip.current % (idleSkip * 8) === 0 && prevPos.current) {
+      if (frameSkip.current % (isMobile ? 4 : 2) === 0 && prevPos.current) {
         const prev = prevPos.current;
         const px = interaction.smoothX ?? 0;
         const py = interaction.smoothY ?? 0;
-        const step = perf.density < 0.55 ? 2 : 1;
-        for (let i = 0; i < n; i += step) {
+        for (let i = 0; i < n; i++) {
           const i3 = i * 3;
           const seed = seeds[i];
           let x = prev[i3];
@@ -200,7 +174,7 @@ export default function ParticleSystem({ reducedMotion = false }) {
           dummy.scale.setScalar(scales[i] * (s.particleSize ?? 1));
           dummy.rotation.set(
             seeds[i] * 2.1,
-            seeds[i] * 3.4 + t * 0.008 * seed,
+            seeds[i] * 3.4 + t * 0.01 * seed,
             seeds[i] * Math.PI * 2
           );
           dummy.updateMatrix();
@@ -213,7 +187,7 @@ export default function ParticleSystem({ reducedMotion = false }) {
 
     if (reducedMotion || targets.length < 2) return;
 
-    const stateF = Math.min(Math.max(targets.length - 1.001, 0), Math.max(0, morph));
+    const stateF = Math.min(targets.length - 1.001, Math.max(0, morph));
     const i0 = Math.floor(stateF);
     const i1 = Math.min(targets.length - 1, i0 + 1);
     const localT = stateF - i0;
@@ -224,20 +198,19 @@ export default function ParticleSystem({ reducedMotion = false }) {
     const mid = 1 - Math.abs(localT - 0.5) * 2;
     const scatter = (s.distortion ?? 0) * 0.02 + mid * mid * 0.01;
     const coolBlend = smoothstep(0.5, 2.5, morph);
-    const spring = 0.16;
+    const spring = 0.18;
     const lagWindow = 0.1;
 
     if (!prevPos.current) {
       prevPos.current = new Float32Array(count * 3);
-      prevPos.current.set(posA.subarray(0, count * 3));
+      prevPos.current.set(posA);
     }
     const prev = prevPos.current;
-    const needColor = Math.abs(morph - lastColorMorph.current) > 0.01;
+    const needColor = Math.abs(morph - lastColorMorph.current) > 0.012;
     if (needColor) lastColorMorph.current = morph;
-    const stride = perf.density < 0.6 ? 2 : 1;
     const colorI = s.colorIntensity ?? 1;
 
-    for (let i = 0; i < n; i += stride) {
+    for (let i = 0; i < n; i++) {
       const seed = seeds[i];
       const i3 = i * 3;
       const delayed = smoothstep(
@@ -251,10 +224,10 @@ export default function ParticleSystem({ reducedMotion = false }) {
       let tz = posA[i3 + 2] + (posB[i3 + 2] - posA[i3 + 2]) * delayed;
 
       if (scatter > 0.002) {
-        const amp = scatter * (0.3 + seed * 0.3);
+        const amp = scatter * (0.25 + seed * 0.25);
         tx += Math.sin(t * 0.4 + seed * 10) * amp;
-        ty += Math.cos(t * 0.3 + seed * 7) * amp * 0.55;
-        tz += Math.sin(t * 0.25 + seed * 12) * amp * 0.6;
+        ty += Math.cos(t * 0.3 + seed * 7) * amp * 0.5;
+        tz += Math.sin(t * 0.25 + seed * 12) * amp * 0.55;
       }
 
       const x = prev[i3] + (tx - prev[i3]) * spring;
