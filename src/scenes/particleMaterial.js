@@ -1,34 +1,31 @@
 import * as THREE from 'three';
 
 /**
- * CRITICAL: filled solid triangles, NOT wireframe.
- * depthWrite true reduces overdraw white blowout.
- * alphaTest cuts soft edge stacking into white.
+ * Hollow pyramid particles — wireframe outline of tetrahedron edges.
+ * Transparent, depth-aware, no white overdraw blast.
  */
 
 export function createParticleBasicMaterial({
-  opacity = 0.95,
+  opacity = 0.9,
   additive = false,
-  wireframe = false,
+  wireframe = true, // HOLLOW by default
 } = {}) {
   const mat = new THREE.MeshBasicMaterial({
     color: 0xffffff,
-    wireframe: false, // ALWAYS filled — never wireframe
+    wireframe: !!wireframe,
     transparent: true,
     opacity,
-    // depthWrite on main layer prevents transparent stacking → white hole
-    depthWrite: !additive,
+    depthWrite: !additive && !wireframe,
     depthTest: true,
     side: THREE.DoubleSide,
     toneMapped: false,
-    // Cut near-zero alpha to reduce soft overdraw mush
-    alphaTest: additive ? 0.02 : 0.08,
+    alphaTest: additive ? 0.02 : wireframe ? 0.05 : 0.08,
     blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending,
   });
 
   mat.onBeforeCompile = (shader) => {
     shader.uniforms.uTime = { value: 0 };
-    shader.uniforms.uNoiseAmp = { value: 0.002 };
+    shader.uniforms.uNoiseAmp = { value: 0.0015 };
     mat.userData.shader = shader;
 
     shader.vertexShader = shader.vertexShader
@@ -49,15 +46,16 @@ export function createParticleBasicMaterial({
           vec3 ip = vec3(instanceMatrix[3].xyz);
           float seed = hashNoise(ip.x * 12.9898 + ip.y * 78.233 + ip.z * 37.719);
           if (uNoiseAmp > 0.0001) {
-            transformed.x += sin(uTime * 0.35 + seed * 6.28) * uNoiseAmp * (seed - 0.5);
-            transformed.y += cos(uTime * 0.28 + seed * 4.0) * uNoiseAmp * 0.6;
+            transformed.x += sin(uTime * 0.3 + seed * 6.28) * uNoiseAmp * (seed - 0.5);
+            transformed.y += cos(uTime * 0.25 + seed * 4.0) * uNoiseAmp * 0.5;
           }
         #endif
         `
       );
   };
 
-  mat.customProgramCacheKey = () => 'dala-particle-v3-filled-dw';
+  mat.customProgramCacheKey = () =>
+    `dala-hollow-pyr-v1-${wireframe ? 'w' : 'f'}-${additive ? 'a' : 'n'}`;
   return mat;
 }
 
@@ -66,6 +64,7 @@ export function createParticleMaterial(opts = {}) {
     ...opts,
     additive: true,
     opacity: 0.1,
+    wireframe: true,
   });
 }
 

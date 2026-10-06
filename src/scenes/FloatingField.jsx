@@ -2,7 +2,7 @@ import { useFrame } from '@react-three/fiber';
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { colorForFieldParticle } from './colorField.js';
-import { getTriangleGeometry } from './sharedGeometry.js';
+import { getPyramidGeometry } from './sharedGeometry.js';
 import {
   createParticleBasicMaterial,
   tickMaterialTime,
@@ -13,14 +13,10 @@ function hash01(i) {
   return x - Math.floor(x);
 }
 
-/**
- * Phase D — sparse large floaters (not dense noise).
- * Desktop ~800–1200, mobile ~250–400.
- */
 function fieldCount(isMobile, reducedMotion) {
-  if (reducedMotion) return 100;
-  if (isMobile) return 300;
-  return 950;
+  if (reducedMotion) return 80;
+  if (isMobile) return 220;
+  return 700;
 }
 
 export default function FloatingField({
@@ -50,8 +46,6 @@ export default function FloatingField({
       const seed = hash01(i);
       seeds[i] = seed;
 
-      // Strong right / edge bias — keep left clear for typography
-      // ~88% right side, rest left edge only
       const sideBias = seed > 0.12 ? 1 : -1;
       const xSpread = sideBias > 0 ? 3.2 : 1.0;
       const x =
@@ -61,46 +55,33 @@ export default function FloatingField({
       const y = (hash01(i + 11) - 0.5) * 3.6;
       const depth = hash01(i + 19);
       depths[i] = depth;
-      // Spread in Z so some sit behind, some near
       const z = 1.2 - depth * 5.5;
 
       base[i * 3] = x;
       base[i * 3 + 1] = y;
       base[i * 3 + 2] = z;
 
-      // Larger individual scales — fewer micro-specks
-      // Tier: large (~12%), medium (~50%), small-but-readable (~38%)
       let sc;
-      if (seed > 0.88) {
-        // Distinct large triangles
-        sc = 0.09 + seed * 0.07;
-      } else if (seed > 0.4) {
-        // Medium readable faces
-        sc = 0.04 + seed * 0.035;
-      } else {
-        // Small but still visible — not dust
-        sc = 0.022 + seed * 0.02;
-      }
-      // Near particles slightly larger
+      if (seed > 0.88) sc = 0.1 + seed * 0.08;
+      else if (seed > 0.4) sc = 0.05 + seed * 0.04;
+      else sc = 0.028 + seed * 0.025;
       sc *= 0.85 + (1 - depth) * 0.25;
       scales[i] = sc;
 
-      // Very slow drift speeds
-      speeds[i * 3] = (seed - 0.5) * 0.12;
-      speeds[i * 3 + 1] = (hash01(i + 29) - 0.5) * 0.1;
-      speeds[i * 3 + 2] = (hash01(i + 41) - 0.5) * 0.06;
+      speeds[i * 3] = (seed - 0.5) * 0.1;
+      speeds[i * 3 + 1] = (hash01(i + 29) - 0.5) * 0.08;
+      speeds[i * 3 + 2] = (hash01(i + 41) - 0.5) * 0.05;
     }
 
     return { base, scales, speeds, depths, seeds };
   }, [count]);
 
-  const geometry = useMemo(() => getTriangleGeometry(), []);
-  // Filled triangles, quiet opacity — same material language as main object
+  const geometry = useMemo(() => getPyramidGeometry(), []);
   const material = useMemo(
     () =>
       createParticleBasicMaterial({
-        opacity: 0.28,
-        wireframe: false,
+        opacity: 0.32,
+        wireframe: true,
       }),
     []
   );
@@ -140,8 +121,7 @@ export default function FloatingField({
     if (!mesh || reducedMotion) return;
 
     const t = clock.elapsedTime;
-    // Very subtle idle noise on material
-    tickMaterialTime(material, t, 0.012);
+    tickMaterialTime(material, t, 0.01);
 
     frame.current += 1;
     const skip = isMobile ? 4 : 3;
@@ -161,26 +141,24 @@ export default function FloatingField({
       const sy = speeds[i * 3 + 1];
       const sz = speeds[i * 3 + 2];
 
-      // Slow drift only — no aggressive motion
       const px =
         base[i * 3] +
-        Math.sin(t * (0.06 + seed * 0.08) + seed * 6) * 0.08;
+        Math.sin(t * (0.05 + seed * 0.07) + seed * 6) * 0.07;
       const py =
         base[i * 3 + 1] +
-        Math.cos(t * (0.05 + seed * 0.07) + seed * 4) * 0.06;
+        Math.cos(t * (0.04 + seed * 0.06) + seed * 4) * 0.05;
       const pz =
         base[i * 3 + 2] +
-        Math.sin(t * (0.04 + seed * 0.05) + seed * 8) *
-          0.15 *
+        Math.sin(t * (0.035 + seed * 0.04) + seed * 8) *
+          0.12 *
           Math.sign(sz || 1);
 
       dummy.position.set(px, py, pz);
       dummy.scale.setScalar(scales[i]);
-      // Slow rotation
       dummy.rotation.set(
-        t * sx * 0.4 + seed * 3,
-        t * sy * 0.35 + seed * 5,
-        t * 0.08 * sx + seed
+        t * sx * 0.35 + seed * 3,
+        t * sy * 0.3 + seed * 5,
+        t * 0.06 * sx + seed
       );
       dummy.updateMatrix();
       mesh.setMatrixAt(i, dummy.matrix);
