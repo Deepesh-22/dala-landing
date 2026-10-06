@@ -1,22 +1,26 @@
-# Build phases
+# Dala Landing — Phase Status
 
-## Phase 1–16 ✅
-Foundation through micro interactions
+## Complete
 
-## Phase 18 — Final QA ✅
-### Fixed
-- Lenis ↔ ScrollTrigger (`scrollerProxy` + `lenis.on('scroll', ScrollTrigger.update)`)
-- Mobile nav panel (button worked, panel was never rendered)
-- Body scroll lock + Escape while menu open
-- Orientationchange → resize for WebGL
-- `gl.setPixelRatio` capped on create
-- Meta description + viewport-fit
-- Code-split three / gsap chunks
+- **A** Filled discrete triangles
+- **B** Reference color field (yellow rim, soft core)
+- **C** Compact anatomical brain
+- **D** Sparse large floaters
+- **E** Morph path brain → dissolve → bulb → globe → structure
+- **F** Hero composition + cinematic camera
+- **G** Editorial type + brand chrome
+- **H** Scroll integration (Lenis + ScrollTrigger)
+- **I** Performance (adaptive density, stride, glow auto-off)
+- **J** Production QA checklist
 
-### Verified
-- `npm run build` succeeds
-- No StrictMode double WebGL mount
-- overflow-x hidden on html/body
-- Reduced motion path intact
-- Scroll reverse uses same timeline (deterministic progress)
-- Architecture unchanged — bugfixes only
+## Live
+
+https://dala-landing-rose.vercel.app/
+
+## Local
+
+```bash
+npm install
+npm run build
+npm run dev
+```
