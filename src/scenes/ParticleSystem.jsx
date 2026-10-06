@@ -3,7 +3,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { buildMorphTargets } from './shapes.js';
 import { buildColorBuffers } from './colorField.js';
-import { getPyramidGeometry } from './sharedGeometry.js';
+import { getTriangleGeometry } from './sharedGeometry.js';
 import {
   createParticleBasicMaterial,
   tickMaterialTime,
@@ -24,7 +24,8 @@ function smoothstep(e0, e1, x) {
 }
 
 /**
- * Hollow pyramid particles + detailed morph shapes.
+ * Reference match: solid filled triangles at readable size.
+ * Density high enough for silhouette, scale large enough to see faces.
  */
 export default function ParticleSystem({ reducedMotion = false }) {
   const meshRef = useRef(null);
@@ -40,27 +41,29 @@ export default function ParticleSystem({ reducedMotion = false }) {
   const colorTmp = useRef(new THREE.Color()).current;
 
   const profile = useMemo(() => getDeviceProfile(), []);
-  const triangleScale = (profile.triangleScale ?? 1.45) * 1.15;
+  // Reference-like triangle scale
+  const triangleScale = profile.triangleScale ?? 1.4;
   const enableGlowBase = profile.enableGlow && !reducedMotion;
   const isMobile = !!profile.isMobile;
 
+  // Dense enough for solid brain silhouette like reference
   const maxCount = useMemo(() => {
     try {
       const budget = getParticleBudget();
-      if (profile.isMobile) return Math.min(budget, 9000);
-      if (profile.isTablet) return Math.min(budget, 18000);
-      return Math.min(budget, 28000);
+      if (profile.isMobile) return Math.min(budget, 14000);
+      if (profile.isTablet) return Math.min(budget, 28000);
+      return Math.min(budget, 48000);
     } catch {
-      return profile.isMobile ? 7000 : 24000;
+      return profile.isMobile ? 10000 : 38000;
     }
   }, [profile]);
 
   const glowMax = useMemo(() => {
     if (!enableGlowBase) return 0;
-    return Math.min(Math.floor(maxCount * 0.02), 500);
+    return Math.min(Math.floor(maxCount * 0.02), 700);
   }, [maxCount, enableGlowBase]);
 
-  const idleSkip = isMobile ? 5 : 3;
+  const idleSkip = isMobile ? 4 : 2;
 
   const { targets, scales, seeds, brainColors, morphColors, glows, glowIndices } =
     useMemo(() => {
@@ -75,8 +78,9 @@ export default function ParticleSystem({ reducedMotion = false }) {
 
       for (let i = 0; i < maxCount; i++) {
         seeds[i] = hash01(i);
-        // Larger so hollow pyramid edges read clearly
-        scales[i] = (0.042 + seeds[i] * 0.048) * triangleScale;
+        // Reference size: small-medium discrete faces, clearly visible
+        // Base ~0.022–0.048 × scale → readable triangles like the screenshot
+        scales[i] = (0.022 + seeds[i] * 0.026) * triangleScale;
       }
 
       const ranked = [];
@@ -97,24 +101,18 @@ export default function ParticleSystem({ reducedMotion = false }) {
       };
     }, [maxCount, triangleScale, enableGlowBase, glowMax]);
 
-  const geometry = useMemo(() => getPyramidGeometry(), []);
-
-  // HOLLOW pyramids — wireframe true
+  const geometry = useMemo(() => getTriangleGeometry(), []);
   const material = useMemo(
-    () =>
-      createParticleBasicMaterial({
-        opacity: 0.88,
-        wireframe: true,
-      }),
+    () => createParticleBasicMaterial({ opacity: 0.92, wireframe: false }),
     []
   );
   const glowMaterial = useMemo(
     () =>
       enableGlowBase
         ? createParticleBasicMaterial({
-            opacity: 0.08,
+            opacity: 0.1,
             additive: true,
-            wireframe: true,
+            wireframe: false,
           })
         : null,
     [enableGlowBase]
@@ -139,6 +137,7 @@ export default function ParticleSystem({ reducedMotion = false }) {
     for (let i = 0; i < maxCount; i++) {
       dummy.position.set(pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2]);
       dummy.scale.setScalar(scales[i]);
+      // Random orientation so faces catch light differently (reference look)
       dummy.rotation.set(
         seeds[i] * Math.PI * 2,
         hash01(i + 2) * Math.PI * 2,
@@ -164,7 +163,7 @@ export default function ParticleSystem({ reducedMotion = false }) {
       for (let g = 0; g < glowIndices.length; g++) {
         const i = glowIndices[g];
         dummy.position.set(pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2]);
-        dummy.scale.setScalar(scales[i] * (1.35 + glows[i] * 0.35));
+        dummy.scale.setScalar(scales[i] * (1.4 + glows[i] * 0.4));
         dummy.rotation.set(seeds[i], hash01(i + 5), hash01(i + 7));
         dummy.updateMatrix();
         glowMesh.setMatrixAt(g, dummy.matrix);
@@ -213,19 +212,19 @@ export default function ParticleSystem({ reducedMotion = false }) {
     const n = liveCount.current;
 
     const vel = reducedMotion ? 0 : interaction.scrollVelocity;
-    const noiseAmp = isMorphing || reducedMotion ? 0 : 0.0012 + vel * 0.004;
+    const noiseAmp = isMorphing || reducedMotion ? 0 : 0.001 + vel * 0.004;
     tickMaterialTime(material, t, noiseAmp);
     if (glowMaterial) tickMaterialTime(glowMaterial, t, noiseAmp * 0.3);
 
     if (mesh.material) {
-      mesh.material.opacity = 0.88 * s.colorIntensity;
+      mesh.material.opacity = 0.92 * s.colorIntensity;
     }
 
     if (!isMorphing) {
       frameSkip.current += 1;
       if (!reducedMotion && groupRef.current) {
         groupRef.current.rotation.y = t * s.rotation * (1 + vel * 0.15);
-        groupRef.current.rotation.x = Math.sin(t * 0.07) * 0.018;
+        groupRef.current.rotation.x = Math.sin(t * 0.07) * 0.015;
       }
 
       if (frameSkip.current % (idleSkip * 8) === 0 && prevPos.current) {
@@ -248,7 +247,7 @@ export default function ParticleSystem({ reducedMotion = false }) {
           dummy.scale.setScalar(scales[i] * s.particleSize);
           dummy.rotation.set(
             seeds[i] * 2.1,
-            seeds[i] * 3.4 + t * 0.012 * seed,
+            seeds[i] * 3.4 + t * 0.01 * seed,
             seeds[i] * Math.PI * 2
           );
           dummy.updateMatrix();
@@ -277,8 +276,8 @@ export default function ParticleSystem({ reducedMotion = false }) {
     const coolBlend = smoothstep(0.5, 2.5, morph);
     const sizeMul = s.particleSize;
     const colorI = s.colorIntensity;
-    const spring = 0.2;
-    const lagWindow = 0.09;
+    const spring = 0.18;
+    const lagWindow = 0.1;
 
     if (!prevPos.current) {
       prevPos.current = new Float32Array(maxCount * 3);
@@ -374,7 +373,7 @@ export default function ParticleSystem({ reducedMotion = false }) {
         if (i >= n) continue;
         const i3 = i * 3;
         dummy.position.set(prev[i3], prev[i3 + 1], prev[i3 + 2]);
-        dummy.scale.setScalar(scales[i] * (1.25 + glows[i] * 0.3) * sizeMul);
+        dummy.scale.setScalar(scales[i] * (1.3 + glows[i] * 0.3) * sizeMul);
         dummy.rotation.set(t * 0.015 + seeds[i], t * 0.01, seeds[i]);
         dummy.updateMatrix();
         glowMesh.setMatrixAt(g, dummy.matrix);
@@ -387,7 +386,7 @@ export default function ParticleSystem({ reducedMotion = false }) {
 
     if (groupRef.current) {
       groupRef.current.rotation.y = t * s.rotation + morph * 0.05;
-      groupRef.current.rotation.x = Math.sin(t * 0.07) * 0.018 + morph * 0.01;
+      groupRef.current.rotation.x = Math.sin(t * 0.07) * 0.015 + morph * 0.01;
     }
   });
 

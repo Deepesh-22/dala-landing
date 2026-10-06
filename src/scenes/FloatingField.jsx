@@ -2,7 +2,7 @@ import { useFrame } from '@react-three/fiber';
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { colorForFieldParticle } from './colorField.js';
-import { getPyramidGeometry } from './sharedGeometry.js';
+import { getTriangleGeometry } from './sharedGeometry.js';
 import {
   createParticleBasicMaterial,
   tickMaterialTime,
@@ -15,8 +15,8 @@ function hash01(i) {
 
 function fieldCount(isMobile, reducedMotion) {
   if (reducedMotion) return 80;
-  if (isMobile) return 220;
-  return 700;
+  if (isMobile) return 250;
+  return 850;
 }
 
 export default function FloatingField({
@@ -61,10 +61,11 @@ export default function FloatingField({
       base[i * 3 + 1] = y;
       base[i * 3 + 2] = z;
 
+      // Sparse large floaters like reference
       let sc;
-      if (seed > 0.88) sc = 0.1 + seed * 0.08;
-      else if (seed > 0.4) sc = 0.05 + seed * 0.04;
-      else sc = 0.028 + seed * 0.025;
+      if (seed > 0.88) sc = 0.08 + seed * 0.06;
+      else if (seed > 0.4) sc = 0.035 + seed * 0.03;
+      else sc = 0.02 + seed * 0.018;
       sc *= 0.85 + (1 - depth) * 0.25;
       scales[i] = sc;
 
@@ -76,12 +77,12 @@ export default function FloatingField({
     return { base, scales, speeds, depths, seeds };
   }, [count]);
 
-  const geometry = useMemo(() => getPyramidGeometry(), []);
+  const geometry = useMemo(() => getTriangleGeometry(), []);
   const material = useMemo(
     () =>
       createParticleBasicMaterial({
-        opacity: 0.32,
-        wireframe: true,
+        opacity: 0.35,
+        wireframe: false,
       }),
     []
   );
@@ -121,7 +122,7 @@ export default function FloatingField({
     if (!mesh || reducedMotion) return;
 
     const t = clock.elapsedTime;
-    tickMaterialTime(material, t, 0.01);
+    tickMaterialTime(material, t, 0.008);
 
     frame.current += 1;
     const skip = isMobile ? 4 : 3;
