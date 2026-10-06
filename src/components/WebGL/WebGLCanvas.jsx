@@ -6,20 +6,24 @@ import WebGLErrorBoundary from './WebGLErrorBoundary.jsx';
 import FallbackVisual from './FallbackVisual.jsx';
 
 /**
- * Phase 14–18 — DPR capped, always present, resizes with window.
+ * Phase H — DPR capped, orientation resize, single mount (no StrictMode).
+ * DPR: Math.min(devicePixelRatio, 2) with tighter mobile caps via getCappedDpr().
  */
 export default function WebGLCanvas({ reducedMotion = false }) {
   const { isMobile, isTablet } = useResponsive();
   const dpr = reducedMotion ? 1 : getCappedDpr();
 
-  // Force a layout pass after fonts / soft keyboard so canvas matches viewport
   useEffect(() => {
-    const onVis = () => {
-      // r3f listens to window resize; trigger one for orientation changes
+    const onOrient = () => {
+      // Let R3F + App Lenis handlers refresh layout
       window.dispatchEvent(new Event('resize'));
     };
-    window.addEventListener('orientationchange', onVis);
-    return () => window.removeEventListener('orientationchange', onVis);
+    window.addEventListener('orientationchange', onOrient);
+    window.addEventListener('webgl-resize', onOrient);
+    return () => {
+      window.removeEventListener('orientationchange', onOrient);
+      window.removeEventListener('webgl-resize', onOrient);
+    };
   }, []);
 
   return (
@@ -51,7 +55,6 @@ export default function WebGLCanvas({ reducedMotion = false }) {
           }}
           onCreated={({ gl, camera }) => {
             gl.setClearColor(0x000000, 1);
-            // Cap pixel ratio again at context level
             const cap = reducedMotion ? 1 : getCappedDpr();
             gl.setPixelRatio(cap);
             camera.lookAt(isMobile ? 0.3 : 0.85, 0.05, 0);

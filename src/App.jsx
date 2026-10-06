@@ -28,7 +28,12 @@ export default function App() {
     };
   }, []);
 
-  // Lenis + ScrollTrigger must stay in sync or scrub stutters
+  /**
+   * Phase H — Lenis + ScrollTrigger integration
+   * 1. lenis.on('scroll', ScrollTrigger.update)
+   * 2. scrollerProxy so scrub uses Lenis position
+   * 3. resize + orientationchange → lenis.resize + ScrollTrigger.refresh
+   */
   useEffect(() => {
     if (reducedMotion) return undefined;
 
@@ -42,9 +47,10 @@ export default function App() {
         easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
       });
 
+      // (1) Keep ScrollTrigger in sync with Lenis
       lenis.on('scroll', ScrollTrigger.update);
 
-      // Tell ScrollTrigger to use Lenis' virtual scroll position
+      // (2) scrollerProxy — ScrollTrigger reads Lenis virtual scroll
       ScrollTrigger.scrollerProxy(document.body, {
         scrollTop(value) {
           if (arguments.length) {
@@ -60,7 +66,11 @@ export default function App() {
             height: window.innerHeight,
           };
         },
+        // Helps pin/scrub on mobile with transform scroll
+        pinType: document.body.style.transform ? 'transform' : 'fixed',
       });
+
+      ScrollTrigger.defaults({ scroller: document.body });
 
       const raf = (time) => {
         lenis.raf(time);
@@ -68,20 +78,31 @@ export default function App() {
       };
       rafId = requestAnimationFrame(raf);
 
+      // (3) resize + orientationchange
       const onResize = () => {
         lenis.resize();
         ScrollTrigger.refresh();
+        window.dispatchEvent(new Event('webgl-resize'));
       };
-      window.addEventListener('resize', onResize, { passive: true });
 
+      window.addEventListener('resize', onResize, { passive: true });
+      window.addEventListener('orientationchange', onResize, { passive: true });
+
+      // Initial + delayed refresh (fonts / layout settle)
       ScrollTrigger.refresh();
+      const t1 = setTimeout(() => ScrollTrigger.refresh(), 200);
+      const t2 = setTimeout(() => ScrollTrigger.refresh(), 800);
 
       return () => {
+        clearTimeout(t1);
+        clearTimeout(t2);
         window.removeEventListener('resize', onResize);
+        window.removeEventListener('orientationchange', onResize);
         cancelAnimationFrame(rafId);
         lenis.off('scroll', ScrollTrigger.update);
         lenis.destroy();
         ScrollTrigger.scrollerProxy(document.body, {});
+        ScrollTrigger.defaults({ scroller: window });
       };
     } catch (e) {
       console.warn('[Lenis]', e);
