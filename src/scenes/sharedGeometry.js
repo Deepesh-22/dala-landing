@@ -1,45 +1,33 @@
 import * as THREE from 'three';
 
-/**
- * Flat filled triangle — matches reference Dala particles.
- * Discrete solid faces, not wireframe pyramids.
- */
-let _triangle = null;
+/** Flat solid triangle — same as reference particle shape */
+let _geo = null;
 
 export function getTriangleGeometry() {
-  if (_triangle) return _triangle;
-
-  // Equilateral-ish triangle centered at origin
+  if (_geo) return _geo;
   const geo = new THREE.BufferGeometry();
+  // Equilateral triangle centered
   geo.setAttribute(
     'position',
     new THREE.Float32BufferAttribute(
-      [
-        0, 1.0, 0,
-        -0.866, -0.5, 0,
-        0.866, -0.5, 0,
-      ],
+      [0, 0.9, 0, -0.78, -0.45, 0, 0.78, -0.45, 0],
       3
     )
   );
   geo.setIndex([0, 1, 2]);
   geo.computeVertexNormals();
   geo.computeBoundingSphere();
-  _triangle = geo;
-  return _triangle;
+  _geo = geo;
+  return _geo;
 }
 
 export function getPyramidGeometry() {
   return getTriangleGeometry();
 }
 
-export function getHollowPyramidGeometry() {
-  return getTriangleGeometry();
-}
-
 export function disposeSharedGeometry() {
-  if (_triangle) {
-    _triangle.dispose();
-    _triangle = null;
+  if (_geo) {
+    _geo.dispose();
+    _geo = null;
   }
 }
