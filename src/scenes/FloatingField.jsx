@@ -3,18 +3,24 @@ import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { colorForFieldParticle } from './colorField.js';
 import { getTriangleGeometry } from './sharedGeometry.js';
-import { createParticleBasicMaterial, tickMaterialTime } from './particleMaterial.js';
+import {
+  createParticleBasicMaterial,
+  tickMaterialTime,
+} from './particleMaterial.js';
 
 function hash01(i) {
   const x = Math.sin(i * 12.9898 + 78.233) * 43758.5453;
   return x - Math.floor(x);
 }
 
-/** Fidelity: denser ambient field on desktop */
+/**
+ * Phase D — sparse large floaters (not dense noise).
+ * Desktop ~800–1200, mobile ~250–400.
+ */
 function fieldCount(isMobile, reducedMotion) {
-  if (reducedMotion) return 120;
-  if (isMobile) return 320;
-  return 1100;
+  if (reducedMotion) return 100;
+  if (isMobile) return 300;
+  return 950;
 }
 
 export default function FloatingField({
@@ -44,39 +50,58 @@ export default function FloatingField({
       const seed = hash01(i);
       seeds[i] = seed;
 
-      // Bias right + edges — leave left for type
-      const sideBias = seed > 0.14 ? 1 : -1;
-      const xSpread = sideBias > 0 ? 3.0 : 1.3;
+      // Strong right / edge bias — keep left clear for typography
+      // ~88% right side, rest left edge only
+      const sideBias = seed > 0.12 ? 1 : -1;
+      const xSpread = sideBias > 0 ? 3.2 : 1.0;
       const x =
-        sideBias * (0.35 + hash01(i + 3) * xSpread) +
-        (hash01(i + 7) - 0.5) * 0.5;
+        sideBias * (0.55 + hash01(i + 3) * xSpread) +
+        (hash01(i + 7) - 0.5) * 0.35;
 
-      const y = (hash01(i + 11) - 0.5) * 3.4;
+      const y = (hash01(i + 11) - 0.5) * 3.6;
       const depth = hash01(i + 19);
       depths[i] = depth;
-      const z = 1.4 - depth * 5.8;
+      // Spread in Z so some sit behind, some near
+      const z = 1.2 - depth * 5.5;
 
       base[i * 3] = x;
       base[i * 3 + 1] = y;
       base[i * 3 + 2] = z;
 
-      const nearBoost = 1 - depth;
-      const isLarge = seed > 0.93;
-      scales[i] = isLarge
-        ? 0.07 + seed * 0.08
-        : 0.01 + nearBoost * 0.03 + seed * 0.016;
+      // Larger individual scales — fewer micro-specks
+      // Tier: large (~12%), medium (~50%), small-but-readable (~38%)
+      let sc;
+      if (seed > 0.88) {
+        // Distinct large triangles
+        sc = 0.09 + seed * 0.07;
+      } else if (seed > 0.4) {
+        // Medium readable faces
+        sc = 0.04 + seed * 0.035;
+      } else {
+        // Small but still visible — not dust
+        sc = 0.022 + seed * 0.02;
+      }
+      // Near particles slightly larger
+      sc *= 0.85 + (1 - depth) * 0.25;
+      scales[i] = sc;
 
-      speeds[i * 3] = (seed - 0.5) * 0.35;
-      speeds[i * 3 + 1] = (hash01(i + 29) - 0.5) * 0.28;
-      speeds[i * 3 + 2] = (hash01(i + 41) - 0.5) * 0.14;
+      // Very slow drift speeds
+      speeds[i * 3] = (seed - 0.5) * 0.12;
+      speeds[i * 3 + 1] = (hash01(i + 29) - 0.5) * 0.1;
+      speeds[i * 3 + 2] = (hash01(i + 41) - 0.5) * 0.06;
     }
 
     return { base, scales, speeds, depths, seeds };
   }, [count]);
 
   const geometry = useMemo(() => getTriangleGeometry(), []);
+  // Filled triangles, quiet opacity — same material language as main object
   const material = useMemo(
-    () => createParticleBasicMaterial({ opacity: 0.32 }),
+    () =>
+      createParticleBasicMaterial({
+        opacity: 0.28,
+        wireframe: false,
+      }),
     []
   );
 
@@ -115,14 +140,15 @@ export default function FloatingField({
     if (!mesh || reducedMotion) return;
 
     const t = clock.elapsedTime;
-    tickMaterialTime(material, t, 0.035);
+    // Very subtle idle noise on material
+    tickMaterialTime(material, t, 0.012);
 
     frame.current += 1;
-    const skip = isMobile ? 3 : 2;
+    const skip = isMobile ? 4 : 3;
     if (frame.current % skip !== 0) {
       if (groupRef.current) {
-        groupRef.current.position.x = Math.sin(t * 0.04) * 0.08;
-        groupRef.current.position.y = Math.cos(t * 0.05) * 0.05;
+        groupRef.current.position.x = Math.sin(t * 0.025) * 0.05;
+        groupRef.current.position.y = Math.cos(t * 0.03) * 0.03;
       }
       return;
     }
@@ -135,24 +161,26 @@ export default function FloatingField({
       const sy = speeds[i * 3 + 1];
       const sz = speeds[i * 3 + 2];
 
+      // Slow drift only — no aggressive motion
       const px =
         base[i * 3] +
-        Math.sin(t * (0.15 + seed * 0.2) + seed * 6) * 0.12;
+        Math.sin(t * (0.06 + seed * 0.08) + seed * 6) * 0.08;
       const py =
         base[i * 3 + 1] +
-        Math.cos(t * (0.12 + seed * 0.18) + seed * 4) * 0.1;
+        Math.cos(t * (0.05 + seed * 0.07) + seed * 4) * 0.06;
       const pz =
         base[i * 3 + 2] +
-        Math.sin(t * (0.08 + seed * 0.12) + seed * 8) *
-          0.35 *
+        Math.sin(t * (0.04 + seed * 0.05) + seed * 8) *
+          0.15 *
           Math.sign(sz || 1);
 
       dummy.position.set(px, py, pz);
       dummy.scale.setScalar(scales[i]);
+      // Slow rotation
       dummy.rotation.set(
-        t * sx + seed * 3,
-        t * sy + seed * 5,
-        t * 0.2 * sx + seed
+        t * sx * 0.4 + seed * 3,
+        t * sy * 0.35 + seed * 5,
+        t * 0.08 * sx + seed
       );
       dummy.updateMatrix();
       mesh.setMatrixAt(i, dummy.matrix);
@@ -161,8 +189,8 @@ export default function FloatingField({
     mesh.instanceMatrix.needsUpdate = true;
 
     if (groupRef.current) {
-      groupRef.current.position.x = Math.sin(t * 0.04) * 0.08;
-      groupRef.current.position.y = Math.cos(t * 0.05) * 0.05;
+      groupRef.current.position.x = Math.sin(t * 0.025) * 0.05;
+      groupRef.current.position.y = Math.cos(t * 0.03) * 0.03;
     }
   });
 
