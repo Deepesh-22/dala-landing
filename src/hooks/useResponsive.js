@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
 
 /**
- * Phase F — responsive framing + particle budgets.
- * Desktop: object right-biased (offsetX 1.0–1.3), scale 1.4–1.6
- * Mobile: object centered/lower
+ * Reduced particle budgets for clearer pyramid faces.
+ * Desktop ~22k–32k, tablet ~14k–20k, mobile ~6k–10k.
  */
 function getSnapshot() {
   if (typeof window === 'undefined') {
@@ -15,8 +14,8 @@ function getSnapshot() {
       isDesktop: true,
       dpr: 1,
       reducedMotion: false,
-      particleBudget: 55000,
-      triangleScale: 1.35,
+      particleBudget: 28000,
+      triangleScale: 1.45,
       enableGlow: true,
       objectOffsetX: 1.2,
       objectScale: 1.5,
@@ -41,36 +40,36 @@ function getSnapshot() {
   const isTablet = width >= 768 && width < 1024;
   const isDesktop = width >= 1024;
 
+  // Lower counts — pyramids need space to read as 3D
   let particleBudget;
-  if (width < 480) particleBudget = 9000;
-  else if (width < 640) particleBudget = 13000;
-  else if (width < 768) particleBudget = 18000;
-  else if (width < 900) particleBudget = 28000;
-  else if (width < 1024) particleBudget = 38000;
-  else if (width < 1440) particleBudget = 50000;
-  else if (width < 1800) particleBudget = 60000;
-  else particleBudget = 70000;
+  if (width < 480) particleBudget = 6000;
+  else if (width < 640) particleBudget = 8000;
+  else if (width < 768) particleBudget = 10000;
+  else if (width < 900) particleBudget = 16000;
+  else if (width < 1024) particleBudget = 20000;
+  else if (width < 1440) particleBudget = 26000;
+  else if (width < 1800) particleBudget = 30000;
+  else particleBudget = 34000;
 
   const cores = navigator.hardwareConcurrency || 4;
-  if (cores <= 2) particleBudget = Math.min(particleBudget, 12000);
-  else if (cores <= 4 && isMobile) particleBudget = Math.min(particleBudget, 16000);
-  if (reducedMotion) particleBudget = Math.min(particleBudget, 10000);
+  if (cores <= 2) particleBudget = Math.min(particleBudget, 8000);
+  else if (cores <= 4 && isMobile) particleBudget = Math.min(particleBudget, 10000);
+  if (reducedMotion) particleBudget = Math.min(particleBudget, 6000);
 
-  let triangleScale = 1.35;
-  if (isMobile) triangleScale = 1.05;
-  else if (isTablet) triangleScale = 1.2;
+  let triangleScale = 1.45;
+  if (isMobile) triangleScale = 1.15;
+  else if (isTablet) triangleScale = 1.3;
 
   const enableGlow = isDesktop && !reducedMotion && cores > 4;
 
-  // Phase F framing
-  let objectOffsetX = 1.2; // desktop right-bias 1.0–1.3
-  let objectScale = 1.5; // desktop 1.4–1.6
+  let objectOffsetX = 1.2;
+  let objectScale = 1.5;
   let objectOffsetY = 0.06;
 
   if (isMobile) {
-    objectOffsetX = 0.05; // centered
+    objectOffsetX = 0.05;
     objectScale = 1.12;
-    objectOffsetY = -0.2; // lower so type stacks above
+    objectOffsetY = -0.2;
   } else if (isTablet) {
     objectOffsetX = 0.85;
     objectScale = 1.35;
