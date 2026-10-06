@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 
 /**
- * Larger triangle scale so discrete filled faces read like the reference.
- * Density still high for silhouette.
+ * Phase F — responsive framing + particle budgets.
+ * Desktop: object right-biased (offsetX 1.0–1.3), scale 1.4–1.6
+ * Mobile: object centered/lower
  */
 function getSnapshot() {
   if (typeof window === 'undefined') {
@@ -17,8 +18,9 @@ function getSnapshot() {
       particleBudget: 55000,
       triangleScale: 1.35,
       enableGlow: true,
-      objectOffsetX: 1.15,
+      objectOffsetX: 1.2,
       objectScale: 1.5,
+      objectOffsetY: 0.06,
     };
   }
 
@@ -39,7 +41,6 @@ function getSnapshot() {
   const isTablet = width >= 768 && width < 1024;
   const isDesktop = width >= 1024;
 
-  // Slightly fewer than max but larger triangles = clearer geometry
   let particleBudget;
   if (width < 480) particleBudget = 9000;
   else if (width < 640) particleBudget = 13000;
@@ -55,24 +56,31 @@ function getSnapshot() {
   else if (cores <= 4 && isMobile) particleBudget = Math.min(particleBudget, 16000);
   if (reducedMotion) particleBudget = Math.min(particleBudget, 10000);
 
-  // Larger triangles so each face reads as a triangle (reference look)
   let triangleScale = 1.35;
   if (isMobile) triangleScale = 1.05;
   else if (isTablet) triangleScale = 1.2;
 
   const enableGlow = isDesktop && !reducedMotion && cores > 4;
 
-  let objectOffsetX = 1.15;
-  let objectScale = 1.5;
+  // Phase F framing
+  let objectOffsetX = 1.2; // desktop right-bias 1.0–1.3
+  let objectScale = 1.5; // desktop 1.4–1.6
+  let objectOffsetY = 0.06;
+
   if (isMobile) {
-    objectOffsetX = 0.1;
-    objectScale = 1.15;
+    objectOffsetX = 0.05; // centered
+    objectScale = 1.12;
+    objectOffsetY = -0.2; // lower so type stacks above
   } else if (isTablet) {
-    objectOffsetX = 0.8;
+    objectOffsetX = 0.85;
     objectScale = 1.35;
+    objectOffsetY = 0.02;
   } else if (width < 1280) {
-    objectOffsetX = 1.0;
-    objectScale = 1.4;
+    objectOffsetX = 1.05;
+    objectScale = 1.42;
+  } else if (width >= 1600) {
+    objectOffsetX = 1.25;
+    objectScale = 1.55;
   }
 
   return {
@@ -88,6 +96,7 @@ function getSnapshot() {
     enableGlow,
     objectOffsetX,
     objectScale,
+    objectOffsetY,
   };
 }
 

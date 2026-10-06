@@ -4,7 +4,11 @@ import * as THREE from 'three';
 import { sceneState } from '../lib/sceneState.js';
 
 /**
- * Phase 12 + 14 — cinematic camera with responsive framing.
+ * Phase F — cinematic camera:
+ * - lookAt biased toward right-side brain (not dead center)
+ * - subtle lerp damping on position / look / fov
+ * - mobile: pull back + center look for stacked layout
+ * - fully reversible (driven by sceneState from scroll progress)
  */
 export default function CameraController({
   reducedMotion = false,
@@ -13,28 +17,28 @@ export default function CameraController({
 }) {
   const { camera, size } = useThree();
 
-  const pos = useRef(new THREE.Vector3(-0.12, 0.18, 4.55));
-  const look = useRef(new THREE.Vector3(0.9, 0.06, 0));
-  const targetPos = useRef(new THREE.Vector3(-0.12, 0.18, 4.55));
-  const targetLook = useRef(new THREE.Vector3(0.9, 0.06, 0));
-  const fovCurrent = useRef(43);
-  const fovTarget = useRef(43);
+  const pos = useRef(new THREE.Vector3(-0.22, 0.14, 4.15));
+  const look = useRef(new THREE.Vector3(1.1, 0.06, 0));
+  const targetPos = useRef(new THREE.Vector3(-0.22, 0.14, 4.15));
+  const targetLook = useRef(new THREE.Vector3(1.1, 0.06, 0));
+  const fovCurrent = useRef(40);
+  const fovTarget = useRef(40);
   const initialized = useRef(false);
 
   const aspect = size.width / Math.max(size.height, 1);
 
-  // Mobile: pull back + center look so stacked type + object both read
+  // Responsive framing adjustments
   let zScale = 1;
   let fovBoost = 0;
   let lookBiasX = 0;
   if (isMobile) {
-    zScale = 1.22;
-    fovBoost = 6;
-    lookBiasX = -0.35; // look more toward center
+    zScale = 1.25;
+    fovBoost = 7;
+    lookBiasX = -0.55; // center look for stacked type + object
   } else if (isTablet || aspect < 0.95) {
-    zScale = 1.1;
+    zScale = 1.12;
     fovBoost = 3;
-    lookBiasX = -0.15;
+    lookBiasX = -0.2;
   }
 
   useLayoutEffect(() => {
@@ -69,13 +73,15 @@ export default function CameraController({
     );
     fovTarget.current = cam.fov + fovBoost;
 
+    // Very subtle idle drift (desktop)
     if (!reducedMotion) {
-      const drift = isMobile ? 0.02 : 0.045;
-      targetPos.current.x += Math.sin(t * 0.06) * drift;
-      targetPos.current.y += Math.cos(t * 0.08) * (drift * 0.55);
+      const drift = isMobile ? 0.015 : 0.035;
+      targetPos.current.x += Math.sin(t * 0.055) * drift;
+      targetPos.current.y += Math.cos(t * 0.07) * (drift * 0.5);
     }
 
-    const damping = reducedMotion ? 1 : isMobile ? 0.06 : 0.045;
+    // Smooth exponential damping — reversible with scroll
+    const damping = reducedMotion ? 1 : isMobile ? 0.07 : 0.05;
     const k = reducedMotion
       ? 1
       : 1 - Math.exp(-damping * 60 * Math.min(delta, 0.05));

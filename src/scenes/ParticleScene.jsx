@@ -14,7 +14,9 @@ import {
 } from '../lib/interactionState.js';
 
 /**
- * Phase 16 — subtle pointer parallax on the particle group.
+ * Phase F — hero composition:
+ * Desktop: right-biased object (offsetX ~1.0–1.3, scale ~1.4–1.6)
+ * Mobile: centered / lower so type stacks above
  */
 export default function ParticleScene({
   reducedMotion = false,
@@ -23,13 +25,14 @@ export default function ParticleScene({
   const groupRef = useRef(null);
   const profile = useMemo(() => getDeviceProfile(), []);
 
-  const startX = profile.objectOffsetX ?? (isMobile ? 0.15 : 1.2);
-  const startScale = profile.objectScale ?? (isMobile ? 1.15 : 1.55);
-  const startY = isMobile ? -0.15 : profile.isTablet ? 0.02 : 0.08;
+  const startX = profile.objectOffsetX ?? (isMobile ? 0.05 : 1.2);
+  const startScale = profile.objectScale ?? (isMobile ? 1.12 : 1.5);
+  const startY =
+    profile.objectOffsetY ??
+    (isMobile ? -0.2 : profile.isTablet ? 0.02 : 0.06);
 
   const groupPos = useRef(new THREE.Vector3(startX, startY, 0));
   const groupScale = useRef(startScale);
-  // Extra rotation from pointer — very small
   const paraRot = useRef({ x: 0, y: 0 });
 
   useFrame((_, delta) => {
@@ -43,20 +46,21 @@ export default function ParticleScene({
       ? 1
       : 1 - Math.exp(-damping * 60 * Math.min(delta, 0.05));
 
+    // Desktop: follow timeline object.x (starts ~1.2 right-biased)
+    // Mobile: stay near center/lower
     const targetX = isMobile
-      ? startX + s.object.x * 0.15
+      ? startX + s.object.x * 0.08
       : profile.isTablet
-        ? startX * 0.5 + s.object.x * 0.55
+        ? startX * 0.55 + s.object.x * 0.5
         : s.object.x;
 
-    const targetY = isMobile ? startY + s.object.y * 0.3 : s.object.y;
+    const targetY = isMobile ? startY + s.object.y * 0.2 : s.object.y;
     const targetScale = isMobile
-      ? startScale * (0.92 + s.object.scale * 0.08)
+      ? startScale * (0.95 + s.object.scale * 0.05)
       : s.object.scale;
 
-    // Subtle mouse parallax (desktop only) — max ~0.12 units
-    const px = reducedMotion || isMobile ? 0 : interaction.smoothX * 0.12;
-    const py = reducedMotion || isMobile ? 0 : interaction.smoothY * 0.08;
+    const px = reducedMotion || isMobile ? 0 : interaction.smoothX * 0.1;
+    const py = reducedMotion || isMobile ? 0 : interaction.smoothY * 0.07;
 
     groupPos.current.x += (targetX + px - groupPos.current.x) * k;
     groupPos.current.y += (targetY + py - groupPos.current.y) * k;
@@ -65,12 +69,10 @@ export default function ParticleScene({
     groupRef.current.position.copy(groupPos.current);
     groupRef.current.scale.setScalar(groupScale.current);
 
-    // Soft tilt toward cursor
     if (!reducedMotion && !isMobile) {
       const rk = 1 - Math.exp(-2.5 * Math.min(delta, 0.05));
-      paraRot.current.y += (interaction.smoothX * 0.06 - paraRot.current.y) * rk;
-      paraRot.current.x += (-interaction.smoothY * 0.04 - paraRot.current.x) * rk;
-      // Applied on top of ParticleSystem's own rotation via group parent offset
+      paraRot.current.y += (interaction.smoothX * 0.05 - paraRot.current.y) * rk;
+      paraRot.current.x += (-interaction.smoothY * 0.035 - paraRot.current.x) * rk;
       groupRef.current.rotation.x = paraRot.current.x;
       groupRef.current.rotation.y = paraRot.current.y;
     }
