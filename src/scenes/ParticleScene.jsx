@@ -15,9 +15,9 @@ export default function ParticleScene({
   const groupRef = useRef(null);
   const profile = useMemo(() => getDeviceProfile(), []);
 
-  const startX = profile.objectOffsetX ?? (isMobile ? 0.05 : 1.15);
-  const startScale = profile.objectScale ?? (isMobile ? 1.12 : 1.5);
-  const startY = profile.objectOffsetY ?? (isMobile ? -0.2 : 0.06);
+  const startX = isMobile ? 0.1 : 1.2;
+  const startY = isMobile ? -0.15 : 0.05;
+  const startScale = isMobile ? 1.2 : 1.55;
 
   const groupPos = useRef(new THREE.Vector3(startX, startY, 0));
   const groupScale = useRef(startScale);
@@ -27,23 +27,17 @@ export default function ParticleScene({
     tickInteraction(delta);
 
     const s = sceneState;
-    const damping = reducedMotion ? 1 : 0.06;
+    const damping = reducedMotion ? 1 : 0.08;
     const k = reducedMotion
       ? 1
       : 1 - Math.exp(-damping * 60 * Math.min(delta, 0.05));
 
-    const targetX = isMobile
-      ? startX + (s.object?.x ?? 0) * 0.08
-      : s.object?.x ?? startX;
-    const targetY = isMobile
-      ? startY + (s.object?.y ?? 0) * 0.2
-      : s.object?.y ?? startY;
-    const targetScale = isMobile
-      ? startScale
-      : s.object?.scale ?? startScale;
+    const targetX = isMobile ? startX : (s.object?.x ?? startX);
+    const targetY = isMobile ? startY : (s.object?.y ?? startY);
+    const targetScale = isMobile ? startScale : (s.object?.scale ?? startScale);
 
-    const px = reducedMotion || isMobile ? 0 : (interaction.smoothX ?? 0) * 0.1;
-    const py = reducedMotion || isMobile ? 0 : (interaction.smoothY ?? 0) * 0.07;
+    const px = reducedMotion || isMobile ? 0 : (interaction.smoothX ?? 0) * 0.08;
+    const py = reducedMotion || isMobile ? 0 : (interaction.smoothY ?? 0) * 0.05;
 
     groupPos.current.x += (targetX + px - groupPos.current.x) * k;
     groupPos.current.y += (targetY + py - groupPos.current.y) * k;
@@ -56,12 +50,15 @@ export default function ParticleScene({
   return (
     <>
       <color attach="background" args={['#000000']} />
+      {/* Ambient so MeshBasic still fine; no lights required */}
       <CameraController
         reducedMotion={reducedMotion}
         isMobile={isMobile}
         isTablet={!!profile.isTablet}
       />
-      <FloatingField reducedMotion={reducedMotion} isMobile={isMobile} />
+      {!isMobile && (
+        <FloatingField reducedMotion={reducedMotion} isMobile={isMobile} />
+      )}
       <group ref={groupRef} position={[startX, startY, 0]} scale={startScale}>
         <ParticleSystem reducedMotion={reducedMotion} />
       </group>

@@ -8,7 +8,11 @@ import FallbackVisual from './FallbackVisual.jsx';
 function canCreateWebGL() {
   try {
     const c = document.createElement('canvas');
-    return !!(c.getContext('webgl2') || c.getContext('webgl'));
+    const gl =
+      c.getContext('webgl2', { failIfMajorPerformanceCaveat: false }) ||
+      c.getContext('webgl', { failIfMajorPerformanceCaveat: false }) ||
+      c.getContext('experimental-webgl');
+    return !!gl;
   } catch {
     return false;
   }
@@ -16,8 +20,10 @@ function canCreateWebGL() {
 
 export default function WebGLCanvas({ reducedMotion = false }) {
   const { isMobile, isTablet } = useResponsive();
-  const [supported] = useState(() => canCreateWebGL());
-  const dpr = reducedMotion ? 1 : getCappedDpr();
+  const [supported] = useState(() =>
+    typeof window !== 'undefined' ? canCreateWebGL() : true
+  );
+  const dprCap = reducedMotion ? 1 : Math.min(getCappedDpr(), 1.5);
 
   useEffect(() => {
     const onOrient = () => window.dispatchEvent(new Event('resize'));
@@ -27,15 +33,14 @@ export default function WebGLCanvas({ reducedMotion = false }) {
 
   const glConfig = useMemo(
     () => ({
-      antialias: !isMobile,
+      antialias: false,
       alpha: false,
       powerPreference: 'high-performance',
       failIfMajorPerformanceCaveat: false,
       stencil: false,
       depth: true,
-      preserveDrawingBuffer: false,
     }),
-    [isMobile]
+    []
   );
 
   if (!supported) {
@@ -50,14 +55,15 @@ export default function WebGLCanvas({ reducedMotion = false }) {
     <div className="webgl-root" aria-hidden="true">
       <WebGLErrorBoundary fallback={<FallbackVisual />}>
         <Canvas
-          dpr={[1, dpr]}
+          dpr={dprCap}
           gl={glConfig}
           frameloop="always"
+          flat
           camera={{
-            fov: isMobile ? 48 : 42,
+            fov: isMobile ? 50 : 42,
             near: 0.1,
             far: 80,
-            position: isMobile ? [0, 0.15, 5.2] : [-0.2, 0.15, 4.2],
+            position: isMobile ? [0, 0.2, 5.5] : [-0.25, 0.2, 4.4],
           }}
           style={{
             position: 'absolute',
@@ -65,13 +71,14 @@ export default function WebGLCanvas({ reducedMotion = false }) {
             width: '100%',
             height: '100%',
             display: 'block',
-            background: '#000',
+            background: '#000000',
           }}
           onCreated={({ gl, camera }) => {
-            gl.setClearColor('#000000', 1);
-            gl.setPixelRatio(reducedMotion ? 1 : getCappedDpr());
-            camera.lookAt(isMobile ? 0.2 : 1.0, 0.05, 0);
+            gl.setClearColor(0x000000, 1);
+            gl.setPixelRatio(dprCap);
+            camera.lookAt(isMobile ? 0.15 : 1.05, 0.05, 0);
             camera.updateProjectionMatrix();
+            console.info('[Dala] WebGL ready', gl.getParameter(gl.VERSION));
           }}
         >
           <Suspense fallback={null}>
