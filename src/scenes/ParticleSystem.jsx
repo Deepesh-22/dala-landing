@@ -10,7 +10,7 @@ import {
 } from './particleMaterial.js';
 import { getDeviceProfile, getParticleBudget } from '../hooks/useResponsive.js';
 import { sceneState } from '../lib/sceneState.js';
-import { activeCount, perf } from '../lib/perf.js';
+import { activeCount, perf, sampleFrame } from '../lib/perf.js';
 import { interaction } from '../lib/interactionState.js';
 
 function hash01(i) {
@@ -24,7 +24,8 @@ function smoothstep(e0, e1, x) {
 }
 
 /**
- * Discrete filled triangles — reference fidelity.
+ * Phase I — performance without losing look.
+ * Adaptive density, idle stride skip, glow auto-off, no per-frame setState.
  */
 export default function ParticleSystem({ reducedMotion = false }) {
   const meshRef = useRef(null);
@@ -36,12 +37,14 @@ export default function ParticleSystem({ reducedMotion = false }) {
   const prevPos = useRef(null);
   const liveCount = useRef(0);
 
+  // Reused vectors — no per-frame allocation
   const dummy = useRef(new THREE.Object3D()).current;
   const colorTmp = useRef(new THREE.Color()).current;
 
   const profile = useMemo(() => getDeviceProfile(), []);
   const triangleScale = profile.triangleScale ?? 1.35;
   const enableGlowBase = profile.enableGlow && !reducedMotion;
+  const isMobile = !!profile.isMobile;
 
   const maxCount = useMemo(() => {
     try {
@@ -56,11 +59,11 @@ export default function ParticleSystem({ reducedMotion = false }) {
 
   const glowMax = useMemo(() => {
     if (!enableGlowBase) return 0;
-    // Sparse glow only — avoids white blowout
     return Math.min(Math.floor(maxCount * 0.04), 1800);
   }, [maxCount, enableGlowBase]);
 
-  const idleSkip = profile.isMobile ? 4 : 2;
+  // Idle matrix updates: skip more frames on mobile
+  const idleSkip = isMobile ? 5 : 3;
 
   const { targets, scales, seeds, brainColors, morphColors, glows, glowIndices } =
     useMemo(() => {
@@ -70,12 +73,11 @@ export default function ParticleSystem({ reducedMotion = false }) {
       const brain = targets[0];
 
       const brainBuf = buildColorBuffers(brain, maxCount);
-      const morphSrc = targets[3] || targets[2] || brain; // bulb colors for later
+      const morphSrc = targets[3] || targets[2] || brain;
       const morphBuf = buildColorBuffers(morphSrc, maxCount);
 
       for (let i = 0; i < maxCount; i++) {
         seeds[i] = hash01(i);
-        // Larger base scale so filled triangles read as geometry
         scales[i] = (0.028 + seeds[i] * 0.032) * triangleScale;
       }
 
@@ -97,6 +99,7 @@ export default function ParticleSystem({ reducedMotion = false }) {
       };
     }, [maxCount, triangleScale, enableGlowBase, glowMax]);
 
+  // Shared geometry + materials (reused, disposed on unmount)
   const geometry = useMemo(() => getTriangleGeometry(), []);
   const material = useMemo(
     () => createParticleBasicMaterial({ opacity: 0.9, wireframe: false }),
@@ -133,7 +136,6 @@ export default function ParticleSystem({ reducedMotion = false }) {
     for (let i = 0; i < maxCount; i++) {
       dummy.position.set(pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2]);
       dummy.scale.setScalar(scales[i]);
-      // Random orientation so faces catch light differently
       dummy.rotation.set(
         seeds[i] * Math.PI * 2,
         hash01(i + 2) * Math.PI * 2,
@@ -191,6 +193,9 @@ export default function ParticleSystem({ reducedMotion = false }) {
     const mesh = meshRef.current;
     if (!mesh) return;
 
+    // Adaptive density runs in production (not only with PerfMonitor)
+    sampleFrame(clock.elapsedTime * 1000, isMobile);
+
     const t = clock.elapsedTime;
     const s = sceneState;
     const morph = reducedMotion ? 0 : s.morph;
@@ -198,6 +203,7 @@ export default function ParticleSystem({ reducedMotion = false }) {
     const isMorphing = morphDelta > 0.00015;
     lastMorph.current = morph;
 
+    // Scale live instance count from density — never zero
     const nextLive = Math.min(maxCount, activeCount(maxCount));
     if (nextLive !== liveCount.current) {
       liveCount.current = nextLive;
@@ -214,26 +220,27 @@ export default function ParticleSystem({ reducedMotion = false }) {
       mesh.material.opacity = 0.88 * s.colorIntensity;
     }
 
+    // ── Idle path: skip most matrix updates ───────────────────
     if (!isMorphing) {
       frameSkip.current += 1;
       if (!reducedMotion && groupRef.current) {
-        // Slow rotation like reference
         groupRef.current.rotation.y = t * s.rotation * (1 + vel * 0.2);
         groupRef.current.rotation.x = Math.sin(t * 0.08) * 0.02;
       }
 
-      // Occasional matrix refresh for proximity only
-      if (frameSkip.current % (idleSkip * 10) === 0 && prevPos.current) {
+      // Stride/skip idle matrix work
+      if (frameSkip.current % (idleSkip * 8) === 0 && prevPos.current) {
         const prev = prevPos.current;
         const px = interaction.smoothX;
         const py = interaction.smoothY;
-        for (let i = 0; i < n; i++) {
+        const step = perf.density < 0.55 ? 2 : 1;
+        for (let i = 0; i < n; i += step) {
           const i3 = i * 3;
           const seed = seeds[i];
           let x = prev[i3];
           let y = prev[i3 + 1];
           let z = prev[i3 + 2];
-          if (!reducedMotion && !profile.isMobile) {
+          if (!reducedMotion && !isMobile) {
             const prox = 0.012 * seed;
             x += px * prox;
             y += py * prox * 0.6;
@@ -250,11 +257,18 @@ export default function ParticleSystem({ reducedMotion = false }) {
         }
         mesh.instanceMatrix.needsUpdate = true;
       }
+
+      // Glow off when idle under load
+      const glowMesh = glowRef.current;
+      if (glowMesh) {
+        glowMesh.visible = enableGlowBase && perf.allowGlow;
+      }
       return;
     }
 
     if (reducedMotion) return;
 
+    // ── Morph path ────────────────────────────────────────────
     const stateF = Math.min(4.999, Math.max(0, morph));
     const i0 = Math.floor(stateF);
     const i1 = Math.min(5, i0 + 1);
@@ -280,6 +294,7 @@ export default function ParticleSystem({ reducedMotion = false }) {
     const needColor = Math.abs(morph - lastColorMorph.current) > 0.012;
     if (needColor) lastColorMorph.current = morph;
 
+    // Stride under low density
     const stride = perf.density < 0.6 ? 2 : 1;
 
     for (let i = 0; i < n; i += stride) {
@@ -351,6 +366,7 @@ export default function ParticleSystem({ reducedMotion = false }) {
     mesh.instanceMatrix.needsUpdate = true;
     if (needColor && mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
 
+    // Glow auto-off under load / mobile
     const glowMesh = glowRef.current;
     const doGlow =
       enableGlowBase && perf.allowGlow && glowMesh && glowIndices.length;

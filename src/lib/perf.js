@@ -1,5 +1,5 @@
 /**
- * Phase 15 — module-level performance state.
+ * Phase I — module-level performance state.
  * NO React setState. Mutated only from useFrame / rAF.
  * Adaptive density scales particle work when FPS drops.
  */
@@ -26,7 +26,7 @@ const TARGET_MOBILE = 28;
 const EMA = 0.08;
 
 /**
- * Call once per rendered frame (from useFrame).
+ * Call once per rendered frame (from ParticleSystem useFrame).
  * Adjusts perf.density toward a stable FPS target.
  */
 export function sampleFrame(ms, isMobile = false) {
@@ -41,7 +41,7 @@ export function sampleFrame(ms, isMobile = false) {
   perf.fps = 1000 / perf.emaDelta;
   perf.samples += 1;
 
-  // Only adapt after a short warm-up
+  // Warm-up before adapting
   if (perf.samples < 30) return;
 
   const target = isMobile ? TARGET_MOBILE : TARGET_DESKTOP;
@@ -49,16 +49,16 @@ export function sampleFrame(ms, isMobile = false) {
 
   // Step density slowly — never thrash
   if (fps < target * 0.85) {
-    perf.density = Math.max(0.35, perf.density - 0.02);
-  } else if (fps > target * 1.1 && perf.density < 1) {
-    perf.density = Math.min(1, perf.density + 0.01);
+    perf.density = Math.max(0.35, perf.density - 0.025);
+  } else if (fps > target * 1.12 && perf.density < 1) {
+    perf.density = Math.min(1, perf.density + 0.012);
   }
 
-  // Kill glow early under stress
-  perf.allowGlow = fps > target * 0.9 && perf.density > 0.7;
+  // Glow auto-off under load (also off on mobile via enableGlowBase)
+  perf.allowGlow = !isMobile && fps > target * 0.9 && perf.density > 0.65;
 }
 
-/** Active instance count from budget × density */
+/** Active instance count from budget × density — never hide WebGL entirely */
 export function activeCount(budget) {
-  return Math.max(800, Math.floor(budget * perf.density));
+  return Math.max(1200, Math.floor(budget * perf.density));
 }
