@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { sceneState } from '../../lib/sceneState.js';
 import { interaction, tickInteraction } from '../../lib/interactionState.js';
@@ -109,8 +109,7 @@ function makeTriangleGeo() {
 
 export default function WebGLCanvas({ reducedMotion = false }) {
   const mountRef = useRef(null);
-  const failedRef = useRef(false);
-  const [, bump] = useStateSafe();
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -128,14 +127,12 @@ export default function WebGLCanvas({ reducedMotion = false }) {
       });
     } catch (e) {
       console.warn('[Dala] WebGLRenderer failed', e);
-      failedRef.current = true;
-      bump();
+      setFailed(true);
       return undefined;
     }
 
     if (!renderer.getContext()) {
-      failedRef.current = true;
-      bump();
+      setFailed(true);
       renderer.dispose();
       return undefined;
     }
@@ -145,7 +142,7 @@ export default function WebGLCanvas({ reducedMotion = false }) {
     const dpr = Math.min(window.devicePixelRatio || 1, isMobile ? 1.25 : 1.5);
 
     renderer.setPixelRatio(dpr);
-    renderer.setSize(mount.clientWidth, mount.clientHeight, false);
+    renderer.setSize(mount.clientWidth || window.innerWidth, mount.clientHeight || window.innerHeight, false);
     renderer.setClearColor(0x000000, 1);
     renderer.domElement.style.display = 'block';
     renderer.domElement.style.width = '100%';
@@ -157,14 +154,14 @@ export default function WebGLCanvas({ reducedMotion = false }) {
 
     const camera = new THREE.PerspectiveCamera(
       isMobile ? 50 : 42,
-      mount.clientWidth / Math.max(1, mount.clientHeight),
+      (mount.clientWidth || window.innerWidth) /
+        Math.max(1, mount.clientHeight || window.innerHeight),
       0.1,
       80
     );
     camera.position.set(isMobile ? 0 : -0.25, 0.18, isMobile ? 5.4 : 4.35);
     camera.lookAt(isMobile ? 0.15 : 1.05, 0.05, 0);
 
-    // --- particles ---
     const brain = makeBrain(COUNT);
     const bulb = makeBulb(COUNT);
     const prev = new Float32Array(brain);
@@ -215,7 +212,6 @@ export default function WebGLCanvas({ reducedMotion = false }) {
     group.add(mesh);
     scene.add(group);
 
-    // sparse floaters
     const FCOUNT = isMobile ? 80 : 280;
     const fGeo = makeTriangleGeo();
     const fMat = new THREE.MeshBasicMaterial({
@@ -257,8 +253,8 @@ export default function WebGLCanvas({ reducedMotion = false }) {
 
     const onResize = () => {
       if (!mount) return;
-      const w = mount.clientWidth;
-      const h = mount.clientHeight;
+      const w = mount.clientWidth || window.innerWidth;
+      const h = mount.clientHeight || window.innerHeight;
       if (w < 1 || h < 1) return;
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
@@ -276,16 +272,14 @@ export default function WebGLCanvas({ reducedMotion = false }) {
       const morph = reducedMotion
         ? 0
         : Math.min(5, Math.max(0, sceneState.morph ?? 0));
-      // 0 = brain, ~3 = bulb
       const blend = Math.min(1, Math.max(0, morph / 3));
 
       group.rotation.y = clock.t * 0.04 + morph * 0.02;
       group.rotation.x = Math.sin(clock.t * 0.05) * 0.015;
 
-      // gentle pointer bias
       if (!isMobile && !reducedMotion) {
-        group.position.x = (isMobile ? 0.1 : 1.2) + (interaction.smoothX || 0) * 0.08;
-        group.position.y = (isMobile ? -0.12 : 0.05) + (interaction.smoothY || 0) * 0.05;
+        group.position.x = 1.2 + (interaction.smoothX || 0) * 0.08;
+        group.position.y = 0.05 + (interaction.smoothY || 0) * 0.05;
       }
 
       const spring = 0.16;
@@ -310,7 +304,6 @@ export default function WebGLCanvas({ reducedMotion = false }) {
       }
       mesh.instanceMatrix.needsUpdate = true;
 
-      // floaters drift
       if (!reducedMotion) {
         for (let i = 0; i < FCOUNT; i++) {
           const seed = hash01(i + 900);
@@ -337,9 +330,11 @@ export default function WebGLCanvas({ reducedMotion = false }) {
       cancelAnimationFrame(raf);
       window.removeEventListener('resize', onResize);
       try {
-        mount.removeChild(renderer.domElement);
+        if (renderer.domElement.parentNode === mount) {
+          mount.removeChild(renderer.domElement);
+        }
       } catch {
-        /* already removed */
+        /* ignore */
       }
       geo.dispose();
       mat.dispose();
@@ -349,9 +344,9 @@ export default function WebGLCanvas({ reducedMotion = false }) {
       field.dispose();
       renderer.dispose();
     };
-  }, [reducedMotion, bump]);
+  }, [reducedMotion]);
 
-  if (failedRef.current) {
+  if (failed) {
     return (
       <div className="webgl-root" aria-hidden="true">
         <FallbackVisual />
@@ -359,17 +354,5 @@ export default function WebGLCanvas({ reducedMotion = false }) {
     );
   }
 
-  return (
-    <div
-      ref={mountRef}
-      className="webgl-root"
-      aria-hidden="true"
-    />
-  );
-}
-
-/** tiny state helper so we can re-render on WebGL fail without importing useState at top awkwardly */
-function useStateSafe() {
-  const { useState } = require('react');
-  return useState(0);
+  return <div ref={mountRef} className="webgl-root" aria-hidden="true" />;
 }
