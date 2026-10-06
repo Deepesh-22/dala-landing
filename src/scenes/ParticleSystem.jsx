@@ -24,8 +24,11 @@ function smoothstep(e0, e1, x) {
 }
 
 /**
- * Phase I — performance without losing look.
- * Adaptive density, idle stride skip, glow auto-off, no per-frame setState.
+ * CRITICAL FIX from live video analysis:
+ * - MUCH larger triangle scale so faces read as discrete geometry
+ * - Fewer particles (clearer silhouette, less scribble mush)
+ * - Filled solid material with depthWrite
+ * - Glow sparse + auto-off
  */
 export default function ParticleSystem({ reducedMotion = false }) {
   const meshRef = useRef(null);
@@ -37,32 +40,34 @@ export default function ParticleSystem({ reducedMotion = false }) {
   const prevPos = useRef(null);
   const liveCount = useRef(0);
 
-  // Reused vectors — no per-frame allocation
   const dummy = useRef(new THREE.Object3D()).current;
   const colorTmp = useRef(new THREE.Color()).current;
 
   const profile = useMemo(() => getDeviceProfile(), []);
-  const triangleScale = profile.triangleScale ?? 1.35;
+  // Larger device scale → readable triangle faces
+  const triangleScale = (profile.triangleScale ?? 1.35) * 1.55;
   const enableGlowBase = profile.enableGlow && !reducedMotion;
   const isMobile = !!profile.isMobile;
 
+  // Reduced counts vs earlier — density was creating fiber scribble
   const maxCount = useMemo(() => {
     try {
       const budget = getParticleBudget();
-      if (profile.isMobile) return Math.min(budget, 20000);
-      if (profile.isTablet) return Math.min(budget, 45000);
-      return Math.min(budget, 75000);
+      if (profile.isMobile) return Math.min(budget, 12000);
+      if (profile.isTablet) return Math.min(budget, 28000);
+      // Desktop: 28k–40k large triangles > 70k micro fibers
+      return Math.min(Math.floor(budget * 0.65), 40000);
     } catch {
-      return profile.isMobile ? 12000 : 50000;
+      return profile.isMobile ? 9000 : 32000;
     }
   }, [profile]);
 
   const glowMax = useMemo(() => {
     if (!enableGlowBase) return 0;
-    return Math.min(Math.floor(maxCount * 0.04), 1800);
+    // Very sparse — ≤2.5% and only rim
+    return Math.min(Math.floor(maxCount * 0.025), 900);
   }, [maxCount, enableGlowBase]);
 
-  // Idle matrix updates: skip more frames on mobile
   const idleSkip = isMobile ? 5 : 3;
 
   const { targets, scales, seeds, brainColors, morphColors, glows, glowIndices } =
@@ -78,12 +83,14 @@ export default function ParticleSystem({ reducedMotion = false }) {
 
       for (let i = 0; i < maxCount; i++) {
         seeds[i] = hash01(i);
-        scales[i] = (0.028 + seeds[i] * 0.032) * triangleScale;
+        // LARGE base scale — discrete readable faces (was 0.028–0.06)
+        // Now ~0.045–0.11 × device scale
+        scales[i] = (0.045 + seeds[i] * 0.055) * triangleScale;
       }
 
       const ranked = [];
       for (let i = 0; i < maxCount; i++) {
-        if (brainBuf.glows[i] > 0.25) ranked.push(i);
+        if (brainBuf.glows[i] > 0.2) ranked.push(i);
       }
       ranked.sort((a, b) => brainBuf.glows[b] - brainBuf.glows[a]);
       const glowIndices = enableGlowBase ? ranked.slice(0, glowMax) : [];
@@ -99,17 +106,16 @@ export default function ParticleSystem({ reducedMotion = false }) {
       };
     }, [maxCount, triangleScale, enableGlowBase, glowMax]);
 
-  // Shared geometry + materials (reused, disposed on unmount)
   const geometry = useMemo(() => getTriangleGeometry(), []);
   const material = useMemo(
-    () => createParticleBasicMaterial({ opacity: 0.9, wireframe: false }),
+    () => createParticleBasicMaterial({ opacity: 0.94, wireframe: false }),
     []
   );
   const glowMaterial = useMemo(
     () =>
       enableGlowBase
         ? createParticleBasicMaterial({
-            opacity: 0.12,
+            opacity: 0.1,
             additive: true,
             wireframe: false,
           })
@@ -161,7 +167,7 @@ export default function ParticleSystem({ reducedMotion = false }) {
       for (let g = 0; g < glowIndices.length; g++) {
         const i = glowIndices[g];
         dummy.position.set(pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2]);
-        dummy.scale.setScalar(scales[i] * (1.8 + glows[i]));
+        dummy.scale.setScalar(scales[i] * (1.5 + glows[i] * 0.5));
         dummy.rotation.set(seeds[i], hash01(i + 5), hash01(i + 7));
         dummy.updateMatrix();
         glowMesh.setMatrixAt(g, dummy.matrix);
@@ -193,7 +199,6 @@ export default function ParticleSystem({ reducedMotion = false }) {
     const mesh = meshRef.current;
     if (!mesh) return;
 
-    // Adaptive density runs in production (not only with PerfMonitor)
     sampleFrame(clock.elapsedTime * 1000, isMobile);
 
     const t = clock.elapsedTime;
@@ -203,7 +208,6 @@ export default function ParticleSystem({ reducedMotion = false }) {
     const isMorphing = morphDelta > 0.00015;
     lastMorph.current = morph;
 
-    // Scale live instance count from density — never zero
     const nextLive = Math.min(maxCount, activeCount(maxCount));
     if (nextLive !== liveCount.current) {
       liveCount.current = nextLive;
@@ -212,15 +216,14 @@ export default function ParticleSystem({ reducedMotion = false }) {
     const n = liveCount.current;
 
     const vel = reducedMotion ? 0 : interaction.scrollVelocity;
-    const noiseAmp = isMorphing || reducedMotion ? 0 : 0.003 + vel * 0.008;
+    const noiseAmp = isMorphing || reducedMotion ? 0 : 0.002 + vel * 0.006;
     tickMaterialTime(material, t, noiseAmp);
-    if (glowMaterial) tickMaterialTime(glowMaterial, t, noiseAmp * 0.4);
+    if (glowMaterial) tickMaterialTime(glowMaterial, t, noiseAmp * 0.3);
 
     if (mesh.material) {
-      mesh.material.opacity = 0.88 * s.colorIntensity;
+      mesh.material.opacity = 0.92 * s.colorIntensity;
     }
 
-    // ── Idle path: skip most matrix updates ───────────────────
     if (!isMorphing) {
       frameSkip.current += 1;
       if (!reducedMotion && groupRef.current) {
@@ -228,7 +231,6 @@ export default function ParticleSystem({ reducedMotion = false }) {
         groupRef.current.rotation.x = Math.sin(t * 0.08) * 0.02;
       }
 
-      // Stride/skip idle matrix work
       if (frameSkip.current % (idleSkip * 8) === 0 && prevPos.current) {
         const prev = prevPos.current;
         const px = interaction.smoothX;
@@ -241,7 +243,7 @@ export default function ParticleSystem({ reducedMotion = false }) {
           let y = prev[i3 + 1];
           let z = prev[i3 + 2];
           if (!reducedMotion && !isMobile) {
-            const prox = 0.012 * seed;
+            const prox = 0.01 * seed;
             x += px * prox;
             y += py * prox * 0.6;
           }
@@ -249,7 +251,7 @@ export default function ParticleSystem({ reducedMotion = false }) {
           dummy.scale.setScalar(scales[i] * s.particleSize);
           dummy.rotation.set(
             seeds[i] * 2.1,
-            seeds[i] * 3.4 + t * 0.02 * seed,
+            seeds[i] * 3.4 + t * 0.015 * seed,
             seeds[i] * Math.PI * 2
           );
           dummy.updateMatrix();
@@ -258,7 +260,6 @@ export default function ParticleSystem({ reducedMotion = false }) {
         mesh.instanceMatrix.needsUpdate = true;
       }
 
-      // Glow off when idle under load
       const glowMesh = glowRef.current;
       if (glowMesh) {
         glowMesh.visible = enableGlowBase && perf.allowGlow;
@@ -268,7 +269,6 @@ export default function ParticleSystem({ reducedMotion = false }) {
 
     if (reducedMotion) return;
 
-    // ── Morph path ────────────────────────────────────────────
     const stateF = Math.min(4.999, Math.max(0, morph));
     const i0 = Math.floor(stateF);
     const i1 = Math.min(5, i0 + 1);
@@ -278,7 +278,7 @@ export default function ParticleSystem({ reducedMotion = false }) {
     const posB = targets[i1];
 
     const mid = 1 - Math.abs(localT - 0.5) * 2;
-    const scatter = s.distortion * 0.06 + mid * mid * 0.04 + vel * 0.03;
+    const scatter = s.distortion * 0.05 + mid * mid * 0.03 + vel * 0.025;
     const coolBlend = smoothstep(0.5, 2.5, morph);
     const sizeMul = s.particleSize;
     const colorI = s.colorIntensity;
@@ -294,7 +294,6 @@ export default function ParticleSystem({ reducedMotion = false }) {
     const needColor = Math.abs(morph - lastColorMorph.current) > 0.012;
     if (needColor) lastColorMorph.current = morph;
 
-    // Stride under low density
     const stride = perf.density < 0.6 ? 2 : 1;
 
     for (let i = 0; i < n; i += stride) {
@@ -319,13 +318,13 @@ export default function ParticleSystem({ reducedMotion = false }) {
       let tz = az + (bz - az) * delayed;
 
       if (scatter > 0.004) {
-        const n1 = Math.sin(t * 0.6 + seed * 12.0 + ax * 2.5);
-        const n2 = Math.cos(t * 0.5 + seed * 8.0 + ay * 3.0);
-        const n3 = Math.sin(t * 0.35 + seed * 15.0 + az * 2.2);
-        const amp = scatter * (0.5 + seed * 0.5);
+        const n1 = Math.sin(t * 0.55 + seed * 12.0 + ax * 2.5);
+        const n2 = Math.cos(t * 0.45 + seed * 8.0 + ay * 3.0);
+        const n3 = Math.sin(t * 0.32 + seed * 15.0 + az * 2.2);
+        const amp = scatter * (0.45 + seed * 0.45);
         tx += n1 * amp;
-        ty += n2 * amp * 0.75;
-        tz += n3 * amp * 0.8;
+        ty += n2 * amp * 0.7;
+        tz += n3 * amp * 0.75;
       }
 
       const x = prev[i3] + (tx - prev[i3]) * spring;
@@ -337,12 +336,12 @@ export default function ParticleSystem({ reducedMotion = false }) {
       prev[i3 + 2] = z;
 
       dummy.position.set(x, y, z);
-      dummy.scale.setScalar(scales[i] * sizeMul * (1 + mid * 0.04 * seed));
+      dummy.scale.setScalar(scales[i] * sizeMul * (1 + mid * 0.03 * seed));
 
-      const rotAmp = 0.08 + mid * 0.2;
+      const rotAmp = 0.06 + mid * 0.15;
       dummy.rotation.set(
-        t * 0.05 * rotAmp + seed * 2.1,
-        t * 0.04 * rotAmp + seed * 3.4,
+        t * 0.04 * rotAmp + seed * 2.1,
+        t * 0.03 * rotAmp + seed * 3.4,
         seed * Math.PI * 2
       );
       dummy.updateMatrix();
@@ -366,7 +365,6 @@ export default function ParticleSystem({ reducedMotion = false }) {
     mesh.instanceMatrix.needsUpdate = true;
     if (needColor && mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
 
-    // Glow auto-off under load / mobile
     const glowMesh = glowRef.current;
     const doGlow =
       enableGlowBase && perf.allowGlow && glowMesh && glowIndices.length;
@@ -381,8 +379,8 @@ export default function ParticleSystem({ reducedMotion = false }) {
         if (i >= n) continue;
         const i3 = i * 3;
         dummy.position.set(prev[i3], prev[i3 + 1], prev[i3 + 2]);
-        dummy.scale.setScalar(scales[i] * (1.6 + glows[i]) * sizeMul);
-        dummy.rotation.set(t * 0.03 + seeds[i], t * 0.02, seeds[i]);
+        dummy.scale.setScalar(scales[i] * (1.4 + glows[i] * 0.4) * sizeMul);
+        dummy.rotation.set(t * 0.02 + seeds[i], t * 0.015, seeds[i]);
         dummy.updateMatrix();
         glowMesh.setMatrixAt(g, dummy.matrix);
       }

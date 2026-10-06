@@ -1,16 +1,13 @@
 /**
- * Phase B — Reference color language:
- * - Yellow / gold outer cortex rim (#F5C400)
- * - Multi-hue interior (purple, magenta, cyan, green, indigo, violet)
- * - Soft core — never a blown-out white hole
- * - Discrete per-particle picks (not blended mush)
- * - Glow only on sparse rim highlights
+ * Kill white core blowout. Yellow rim. Multi-hue interior.
+ * Core: purple/indigo only — almost ZERO pure white.
  */
 
 import * as THREE from 'three';
 
 export const PALETTE = {
   white: new THREE.Color('#FFFFFF'),
+  softWhite: new THREE.Color('#E8E4F0'),
   yellow: new THREE.Color('#F5C400'),
   gold: new THREE.Color('#E8B84A'),
   purple: new THREE.Color('#8B5CF6'),
@@ -19,6 +16,7 @@ export const PALETTE = {
   green: new THREE.Color('#22C55E'),
   magenta: new THREE.Color('#EC4899'),
   violet: new THREE.Color('#A78BFA'),
+  deepPurple: new THREE.Color('#5B21B6'),
 };
 
 function hash01(i) {
@@ -30,72 +28,64 @@ function clamp01(x) {
   return Math.min(1, Math.max(0, x));
 }
 
-/**
- * Spatial color field — outer shell yellow, interior multi-hue, soft core.
- */
 export function colorFromField(x, y, z, seed) {
   const elev = y;
   const r2 = x * x + elev * elev * 1.1 + z * z * 0.95;
   const radius = Math.sqrt(r2);
 
-  // Outer shell strength
-  const rim = clamp01((radius - 0.5) / 0.6);
-  // Soft core (inner volume)
-  const core = clamp01(1 - radius / 0.32);
+  const rim = clamp01((radius - 0.55) / 0.55);
+  const core = clamp01(1 - radius / 0.38);
 
   let pick;
 
-  if (rim > 0.4) {
-    // Outer cortex: predominantly yellow/gold, occasional white fleck
-    if (seed > 0.88) pick = PALETTE.white;
-    else if (seed > 0.28) pick = PALETTE.yellow;
+  if (rim > 0.35) {
+    // Outer cortex: yellow/gold dominant — this is the reference rim
+    if (seed > 0.92) pick = PALETTE.softWhite;
+    else if (seed > 0.25) pick = PALETTE.yellow;
     else pick = PALETTE.gold;
-  } else if (core > 0.5) {
-    // Core: soft lilac / indigo / sparse white — NOT white blast
-    // White limited to ~15% of core particles
-    if (seed > 0.85) pick = PALETTE.white;
-    else if (seed > 0.55) pick = PALETTE.violet;
-    else if (seed > 0.3) pick = PALETTE.indigo;
-    else pick = PALETTE.purple;
-  } else if (elev > 0.22) {
-    // Upper mid band
-    if (seed > 0.72) pick = PALETTE.yellow;
-    else if (seed > 0.5) pick = PALETTE.white;
-    else if (seed > 0.28) pick = PALETTE.purple;
+  } else if (core > 0.35) {
+    // CORE — NO pure white. Deep purple / indigo / violet only.
+    // This kills the white hole.
+    if (seed > 0.7) pick = PALETTE.deepPurple;
+    else if (seed > 0.4) pick = PALETTE.indigo;
+    else if (seed > 0.2) pick = PALETTE.purple;
+    else pick = PALETTE.violet;
+  } else if (elev > 0.2) {
+    if (seed > 0.75) pick = PALETTE.yellow;
+    else if (seed > 0.55) pick = PALETTE.softWhite;
+    else if (seed > 0.3) pick = PALETTE.purple;
     else pick = PALETTE.cyan;
-  } else if (elev < -0.18) {
-    // Lower / stem region
-    if (seed > 0.68) pick = PALETTE.yellow;
-    else if (seed > 0.42) pick = PALETTE.purple;
-    else if (seed > 0.22) pick = PALETTE.indigo;
+  } else if (elev < -0.15) {
+    if (seed > 0.7) pick = PALETTE.yellow;
+    else if (seed > 0.45) pick = PALETTE.purple;
+    else if (seed > 0.25) pick = PALETTE.indigo;
     else pick = PALETTE.magenta;
   } else {
-    // Mid band — full multi-hue discrete picks
-    if (seed > 0.88) pick = PALETTE.white;
-    else if (seed > 0.72) pick = PALETTE.yellow;
-    else if (seed > 0.58) pick = PALETTE.purple;
-    else if (seed > 0.44) pick = PALETTE.magenta;
-    else if (seed > 0.3) pick = PALETTE.cyan;
-    else if (seed > 0.18) pick = PALETTE.green;
-    else if (seed > 0.08) pick = PALETTE.indigo;
+    // Mid multi-hue — sparse soft white only
+    if (seed > 0.93) pick = PALETTE.softWhite;
+    else if (seed > 0.78) pick = PALETTE.yellow;
+    else if (seed > 0.62) pick = PALETTE.purple;
+    else if (seed > 0.48) pick = PALETTE.magenta;
+    else if (seed > 0.34) pick = PALETTE.cyan;
+    else if (seed > 0.2) pick = PALETTE.green;
+    else if (seed > 0.1) pick = PALETTE.indigo;
     else pick = PALETTE.violet;
   }
 
-  // Brightness: rim bright, core moderated (0.7–0.9 cap zone)
-  let brightness = 0.74 + seed * 0.22;
-  if (rim > 0.45) brightness = 0.88 + seed * 0.12;
-  if (core > 0.5) brightness = 0.7 + seed * 0.18; // never full 1.0 white hole
+  // Brightness: rim bright, core DIMMED hard
+  let brightness = 0.72 + seed * 0.2;
+  if (rim > 0.4) brightness = 0.9 + seed * 0.1;
+  if (core > 0.35) brightness = 0.45 + seed * 0.2; // dark core — no white hole
 
-  const r = Math.min(1, pick.r * brightness);
-  const g = Math.min(1, pick.g * brightness);
-  const b = Math.min(1, pick.b * brightness);
+  const r = Math.min(0.95, pick.r * brightness);
+  const g = Math.min(0.95, pick.g * brightness);
+  const b = Math.min(0.95, pick.b * brightness);
 
-  const opacity = 0.78 + seed * 0.18;
+  const opacity = 0.85 + seed * 0.12;
 
-  // Glow ONLY sparse rim highlights / rare seeds — not the whole core
+  // Glow ONLY sparse outer rim — never core
   let glow = 0;
-  if (rim > 0.55 && seed > 0.72) glow = 0.3 + seed * 0.18;
-  else if (seed > 0.96) glow = 0.15;
+  if (rim > 0.6 && seed > 0.8) glow = 0.22 + seed * 0.12;
 
   return { r, g, b, opacity: Math.min(1, opacity), glow: clamp01(glow) };
 }
@@ -121,18 +111,16 @@ export function buildColorBuffers(positions, count) {
   return { colors, opacities, glows };
 }
 
-/** Floating-field particles — same palette, dimmer and quieter */
 export function colorForFieldParticle(seed, depth, y) {
   let base;
-  if (y > 0.3) base = seed > 0.55 ? PALETTE.yellow : PALETTE.white;
+  if (y > 0.3) base = seed > 0.55 ? PALETTE.yellow : PALETTE.softWhite;
   else if (y < -0.3) base = seed > 0.55 ? PALETTE.purple : PALETTE.indigo;
   else if (seed > 0.75) base = PALETTE.cyan;
   else if (seed > 0.45) base = PALETTE.purple;
   else if (seed > 0.2) base = PALETTE.yellow;
   else base = PALETTE.magenta;
 
-  // Dimmer than main object
-  const brightness = 0.22 + (1 - depth) * 0.42;
+  const brightness = 0.2 + (1 - depth) * 0.38;
   return {
     r: base.r * brightness,
     g: base.g * brightness,
