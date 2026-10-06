@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 
+/** Phase G — Manifesto / Team / Blog + Request access */
 const LINKS = [
   { href: '#manifesto', label: 'Manifesto' },
   { href: '#feature-02', label: 'Team' },
@@ -9,7 +10,6 @@ const LINKS = [
 export default function Navigation() {
   const [menuOpen, setMenuOpen] = useState(false);
 
-  // Escape + body scroll lock while open
   useEffect(() => {
     if (!menuOpen) return undefined;
 
@@ -30,7 +30,7 @@ export default function Navigation() {
 
   return (
     <header className="nav" role="banner">
-      <a href="#hero" className="nav__logo" aria-label="Home" onClick={close}>
+      <a href="#hero" className="nav__logo" aria-label="Dala home" onClick={close}>
         <span className="nav__logo-mark" aria-hidden="true" />
         <span className="nav__logo-text">Dala</span>
       </a>
@@ -58,7 +58,6 @@ export default function Navigation() {
         <span className="nav__menu-line" />
       </button>
 
-      {/* Mobile panel — was missing in earlier phases */}
       <div
         id="mobile-nav"
         className={`nav__mobile ${menuOpen ? 'is-open' : ''}`}

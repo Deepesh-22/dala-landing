@@ -1,4 +1,4 @@
-/* Phase 1–18 */
+/* Phase 1–18 + G brand chrome */
 
 :root {
   --bg: #000000;
@@ -178,7 +178,11 @@ body {
   pointer-events: auto;
 }
 
+/* Phase G — yellow eyebrow with accent line */
 .hero__eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
   font-size: 0.68rem;
   font-weight: 500;
   letter-spacing: 0.16em;
@@ -189,6 +193,16 @@ body {
   will-change: opacity, transform;
 }
 
+.hero__eyebrow-line {
+  display: inline-block;
+  width: 1.75rem;
+  height: 1px;
+  background: var(--yellow);
+  flex-shrink: 0;
+  opacity: 0.9;
+}
+
+/* Phase G — large weight ~400, tight line-height, clamp() */
 .hero__title {
   font-size: clamp(4rem, 7vw, 8rem);
   font-weight: 400;
@@ -213,6 +227,7 @@ body {
   will-change: opacity, transform;
 }
 
+/* Purple CTA pill — subtle scale/brightness, no bounce */
 .hero__cta {
   display: inline-flex;
   align-items: center;
@@ -238,14 +253,14 @@ body {
 
 .hero__cta:hover {
   background: var(--purple-hover);
-  transform: scale(1.045);
-  filter: brightness(1.1);
-  box-shadow: 0 0 24px rgba(128, 82, 255, 0.28);
+  transform: scale(1.04);
+  filter: brightness(1.08);
+  box-shadow: 0 0 22px rgba(128, 82, 255, 0.26);
 }
 
 .hero__cta:active {
-  transform: scale(1.02);
-  filter: brightness(1.05);
+  transform: scale(1.015);
+  filter: brightness(1.04);
 }
 
 .hero__visual {
@@ -419,21 +434,29 @@ body {
 }
 
 .nav__logo:hover {
-  opacity: 0.7;
+  opacity: 0.75;
 }
 
+/* Phase G — gradient mark (not plain white dot) */
 .nav__logo-mark {
   display: block;
-  width: 0.55rem;
-  height: 0.55rem;
+  width: 0.6rem;
+  height: 0.6rem;
   border-radius: 50%;
-  background: var(--text);
   flex-shrink: 0;
+  background: linear-gradient(
+    135deg,
+    #f5c400 0%,
+    #ec4899 40%,
+    #8b5cf6 70%,
+    #06b6d4 100%
+  );
+  box-shadow: 0 0 10px rgba(139, 92, 246, 0.35);
   transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .nav__logo:hover .nav__logo-mark {
-  transform: scale(1.2);
+  transform: scale(1.15);
 }
 
 .nav__logo-text {
@@ -543,7 +566,6 @@ body {
   transform: translateY(-3.5px) rotate(-45deg);
 }
 
-/* Phase 18 — mobile menu panel */
 .nav__mobile {
   position: fixed;
   inset: 0;
@@ -651,7 +673,6 @@ body {
   }
 }
 
-/* ── Tablet ────────────────────────────────────────────────── */
 @media (min-width: 768px) and (max-width: 1023px) {
   .nav {
     padding: 1.4rem 1.75rem;
@@ -688,7 +709,6 @@ body {
   }
 }
 
-/* ── Mobile ────────────────────────────────────────────────── */
 @media (max-width: 767px) {
   .nav {
     padding: 1.15rem 1.25rem;

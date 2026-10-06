@@ -3,9 +3,9 @@ import { useEditorialMotion } from '../../hooks/useEditorialMotion.js';
 import { useResponsive } from '../../hooks/useResponsive.js';
 
 /**
- * Phase 6 + 11 — hero composition + typographic motion.
- * LEFT: editorial heading (line stagger entrance)
- * RIGHT: particle brain (WebGL)
+ * Phase G — editorial hero type + brand chrome.
+ * Title: weight ~400, tight line-height, clamp() sizes.
+ * Copy keeps product line breaks: Unlock / Collective / Wisdom.
  */
 export default function Hero() {
   const copyRef = useRef(null);
@@ -24,6 +24,7 @@ export default function Hero() {
     <section id="hero" className="hero" data-section="hero">
       <div className="hero__copy" ref={copyRef}>
         <p className="hero__eyebrow hero__anim">
+          <span className="hero__eyebrow-line" aria-hidden="true" />
           Stop managing knowledge. Start using it.
         </p>
 
