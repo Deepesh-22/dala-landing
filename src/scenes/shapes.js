@@ -1,6 +1,6 @@
 /**
- * Morph targets — Phase C compact anatomical brain.
- * Order: brain → distorted → abstract → bulb → globe → structure
+ * Phase E — Morph targets matching reference path:
+ * brain → distorted → abstract (controlled dissolve) → bulb → globe → structure
  */
 
 function hash(n) {
@@ -28,7 +28,6 @@ function fibDir(i, count) {
   };
 }
 
-/** Redistribute remainder onto surface — never leave particles at origin */
 function fillRemainder(pos, idx, count, radius = 0.95, yScale = 0.7) {
   while (idx < count) {
     const d = fibDir(idx + 997, count);
@@ -54,13 +53,14 @@ export function createSphere(count) {
   return pos;
 }
 
+/** Full scatter — used only as extreme; abstract uses controlled dissolve */
 export function createScatter(count) {
   const pos = new Float32Array(count * 3);
-  const R = 2.6;
+  const R = 2.4;
   for (let i = 0; i < count; i++) {
     const d = fibDir(i, count);
     const u = hash(i * 0.73 + 1.1);
-    const r = Math.cbrt(u) * R * (0.5 + hash(i * 1.1) * 0.5);
+    const r = Math.cbrt(u) * R * (0.45 + hash(i * 1.1) * 0.55);
     pos[i * 3] = d.x * r;
     pos[i * 3 + 1] = d.y * r * 0.7;
     pos[i * 3 + 2] = d.z * r;
@@ -68,14 +68,9 @@ export function createScatter(count) {
   return pos;
 }
 
-/**
- * Phase C — Compact dual-hemisphere brain.
- * RZ 0.75–0.85, gap ~0.24, surface ≥70%, clear stem + cerebellum.
- */
+/** Compact dual-hemisphere brain (Phase C) */
 export function createBrain(count) {
   const pos = new Float32Array(count * 3);
-
-  // Mass budget: surface dominant for silhouette readability
   const nSurface = Math.floor(count * 0.74);
   const nInternal = Math.floor(count * 0.06);
   const nCere = Math.floor(count * 0.09);
@@ -83,25 +78,21 @@ export function createBrain(count) {
   const nAura = Math.floor(count * 0.03);
   let idx = 0;
 
-  // Compact proportions — not elongated
   const HEMI_GAP = 0.24;
   const RX = 0.82;
   const RY = 0.7;
-  const RZ = 0.76; // 0.75–0.85 range, not >1.0
+  const RZ = 0.76;
 
-  // --- Cortical surface (dual hemispheres) ---
   for (let i = 0; i < nSurface; i++) {
     const side = i % 2 === 0 ? -1 : 1;
     const hemiIndex = Math.floor(i / 2);
     const hemiCount = Math.ceil(nSurface / 2);
     const d = fibDir(hemiIndex, hemiCount);
 
-    // Keep points away from midplane so fissure reads
     let lx = Math.abs(d.x) * 0.65 + 0.35;
     let ly = d.y;
     let lz = d.z;
 
-    // Mild hemisphere asymmetry (natural brain)
     const asymX = side < 0 ? 0.96 : 1.04;
     const asymY = side < 0 ? 1.02 : 0.98;
     const asymZ = side < 0 ? 0.98 : 1.02;
@@ -115,31 +106,25 @@ export function createBrain(count) {
     let ry = RY * asymY;
     let rz = RZ * asymZ;
 
-    // Regional shaping
     if (lz > 0.28) {
-      // Frontal poles — slightly fuller
       rz *= 1.08;
       rx *= 1.04;
       ry *= 0.96;
     }
     if (lz < -0.28) {
-      // Occipital — narrower
       rx *= 0.84;
       rz *= 0.9;
       ry *= 0.92;
     }
     if (ly > 0.32) {
-      // Superior parietal
       rx *= 1.06;
       ry *= 1.08;
     }
     if (ly < -0.1 && lx > 0.28) {
-      // Temporal lobe drop
       ry *= 0.72;
       ly -= 0.1;
     }
 
-    // Multi-scale sulcus / gyri noise — readable at hero distance
     const g1 = noise3(lx * 9 + side * 2.5, ly * 9, lz * 9);
     const g2 = noise3(lx * 18, ly * 18 + side, lz * 18);
     const g3 = noise3(lx * 32 + side, ly * 28, lz * 30);
@@ -151,21 +136,15 @@ export function createBrain(count) {
     const fold = g1 * 0.09 + g2 * 0.05 + g3 * 0.028 + sulcus;
 
     const shell = 0.93 + hash(i * 1.37) * 0.07;
-    // Occasional deep sulcus inset
     const deep = hash(i * 3.1) > 0.88 ? 0.78 : 1.0;
     const r = (1.0 + fold) * shell * deep;
 
-    const px = side * (HEMI_GAP + lx * r * rx);
-    const py = ly * r * ry + 0.06;
-    const pz = lz * r * rz;
-
-    pos[idx * 3] = px;
-    pos[idx * 3 + 1] = py;
-    pos[idx * 3 + 2] = pz;
+    pos[idx * 3] = side * (HEMI_GAP + lx * r * rx);
+    pos[idx * 3 + 1] = ly * r * ry + 0.06;
+    pos[idx * 3 + 2] = lz * r * rz;
     idx++;
   }
 
-  // --- Sparse internal volume (not origin clump) ---
   for (let j = 0; j < nInternal && idx < count; j++) {
     const side = j % 2 === 0 ? -1 : 1;
     const d = fibDir(j + 19, nInternal);
@@ -177,7 +156,6 @@ export function createBrain(count) {
     idx++;
   }
 
-  // --- Cerebellum (rear-lower mass) ---
   for (let j = 0; j < nCere && idx < count; j++) {
     const side = hash(j * 0.61) > 0.5 ? 1 : -1;
     const d = fibDir(j, nCere);
@@ -188,11 +166,9 @@ export function createBrain(count) {
     idx++;
   }
 
-  // --- Vertical brainstem under center (clear stem) ---
   for (let j = 0; j < nStem && idx < count; j++) {
     const t = j / Math.max(nStem - 1, 1);
     const a = hash(j * 4.1) * Math.PI * 2;
-    // Slight taper downward
     const r = 0.11 * (1 - t * 0.35);
     pos[idx * 3] = Math.cos(a) * r + (hash(j * 1.5) - 0.5) * 0.018;
     pos[idx * 3 + 1] = -0.32 - t * 0.55;
@@ -200,7 +176,6 @@ export function createBrain(count) {
     idx++;
   }
 
-  // --- Minimal aura (avoid fuzzy cloud look) ---
   for (let j = 0; j < nAura && idx < count; j++) {
     const d = fibDir(j + 101, Math.max(nAura, 1));
     const R = 1.02 + hash(j * 0.4) * 0.12;
@@ -210,11 +185,11 @@ export function createBrain(count) {
     idx++;
   }
 
-  // Remainder always onto surface — never origin
   fillRemainder(pos, idx, count, 0.92, 0.62);
   return pos;
 }
 
+/** Mild stretch of brain — not an explosion */
 export function createDistorted(count) {
   const base = createBrain(count);
   const pos = new Float32Array(count * 3);
@@ -222,106 +197,138 @@ export function createDistorted(count) {
     const x = base[i * 3];
     const y = base[i * 3 + 1];
     const z = base[i * 3 + 2];
-    const n = noise3(x * 3, y * 3, z * 3);
-    const stretch = 1.08 + n * 0.12;
-    pos[i * 3] = x * stretch + Math.sin(y * 4) * 0.05;
-    pos[i * 3 + 1] = y * (0.95 + n * 0.1);
-    pos[i * 3 + 2] = z * stretch * 0.98 + Math.sin(x * 4) * 0.06;
+    const n = noise3(x * 2.5, y * 2.5, z * 2.5);
+    // Mild only
+    const stretch = 1.06 + n * 0.08;
+    pos[i * 3] = x * stretch + Math.sin(y * 3.5) * 0.04;
+    pos[i * 3 + 1] = y * (0.97 + n * 0.06);
+    pos[i * 3 + 2] = z * stretch * 0.99 + Math.sin(x * 3.5) * 0.04;
   }
   return pos;
 }
 
+/**
+ * Controlled dissolve — still coherent cloud, not total chaos.
+ * Expands brain outward with ordered fib distribution.
+ */
 export function createAbstract(count) {
-  return createScatter(count);
+  const base = createBrain(count);
+  const pos = new Float32Array(count * 3);
+  for (let i = 0; i < count; i++) {
+    const bx = base[i * 3];
+    const by = base[i * 3 + 1];
+    const bz = base[i * 3 + 2];
+    const seed = hash(i * 1.7);
+    const d = fibDir(i, count);
+
+    // Blend brain position outward along fib direction — controlled expand
+    const expand = 1.35 + seed * 0.9;
+    const drift = 0.15 + seed * 0.35;
+
+    pos[i * 3] = bx * expand + d.x * drift;
+    pos[i * 3 + 1] = by * expand * 0.85 + d.y * drift * 0.7;
+    pos[i * 3 + 2] = bz * expand + d.z * drift;
+  }
+  return pos;
 }
 
-/** Lightbulb — round glass head, neck, screw base */
+/**
+ * Lightbulb — round glass head, neck taper, screw base, subtle outer shell.
+ */
 export function createBulb(count) {
   const pos = new Float32Array(count * 3);
-  const nGlass = Math.floor(count * 0.55);
+  const nGlass = Math.floor(count * 0.52);
   const nInner = Math.floor(count * 0.08);
   const nNeck = Math.floor(count * 0.12);
-  const nScrew = Math.floor(count * 0.15);
+  const nScrew = Math.floor(count * 0.16);
   const nBase = Math.floor(count * 0.05);
-  const nGlow = count - nGlass - nInner - nNeck - nScrew - nBase;
+  const nShell = count - nGlass - nInner - nNeck - nScrew - nBase;
   let idx = 0;
 
+  // Glass bulb head — slightly flattened sphere sitting above neck
   for (let i = 0; i < nGlass; i++) {
     const d = fibDir(i, nGlass);
     let ly = d.y;
-    if (ly < -0.2) ly = -0.2 + (ly + 0.2) * 0.3;
-    const n = noise3(d.x * 3, ly * 3, d.z * 3) * 0.03;
-    pos[idx * 3] = d.x * (0.72 + n);
-    pos[idx * 3 + 1] = ly * (0.82 + n) + 0.5;
-    pos[idx * 3 + 2] = d.z * (0.72 + n);
+    // Flatten bottom of glass so it meets neck cleanly
+    if (ly < -0.15) ly = -0.15 + (ly + 0.15) * 0.25;
+    const n = noise3(d.x * 2.5, ly * 2.5, d.z * 2.5) * 0.025;
+    pos[idx * 3] = d.x * (0.7 + n);
+    pos[idx * 3 + 1] = ly * (0.78 + n) + 0.52;
+    pos[idx * 3 + 2] = d.z * (0.7 + n);
     idx++;
   }
 
+  // Soft inner glow volume
   for (let j = 0; j < nInner && idx < count; j++) {
     const d = fibDir(j + 7, nInner);
-    const r = 0.2 + hash(j) * 0.18;
-    pos[idx * 3] = d.x * r * 0.5;
-    pos[idx * 3 + 1] = 0.5 + d.y * r * 0.65;
-    pos[idx * 3 + 2] = d.z * r * 0.5;
+    const r = 0.18 + hash(j) * 0.16;
+    pos[idx * 3] = d.x * r * 0.48;
+    pos[idx * 3 + 1] = 0.52 + d.y * r * 0.6;
+    pos[idx * 3 + 2] = d.z * r * 0.48;
     idx++;
   }
 
+  // Neck taper
   for (let i = 0; i < nNeck && idx < count; i++) {
     const t = i / Math.max(nNeck - 1, 1);
     const a = hash(i * 0.73) * Math.PI * 2;
-    const radius = 0.28 * (1 - t * 0.5) + 0.08;
-    const y = 0.05 - t * 0.45;
+    const radius = 0.3 * (1 - t * 0.55) + 0.07;
+    const y = 0.08 - t * 0.42;
     pos[idx * 3] = Math.cos(a) * radius;
     pos[idx * 3 + 1] = y;
     pos[idx * 3 + 2] = Math.sin(a) * radius;
     idx++;
   }
 
+  // Screw base threads
   for (let i = 0; i < nScrew && idx < count; i++) {
     const t = i / Math.max(nScrew - 1, 1);
     const turns = 3.5;
-    const a = t * Math.PI * 2 * turns + hash(i) * 0.3;
-    const radius = 0.26 + Math.sin(t * Math.PI * turns * 2) * 0.03;
-    const y = -0.38 - t * 0.5;
+    const a = t * Math.PI * 2 * turns + hash(i) * 0.25;
+    const radius = 0.25 + Math.sin(t * Math.PI * turns * 2) * 0.028;
+    const y = -0.35 - t * 0.48;
     pos[idx * 3] = Math.cos(a) * radius;
     pos[idx * 3 + 1] = y;
     pos[idx * 3 + 2] = Math.sin(a) * radius;
     idx++;
   }
 
+  // Flat contact base
   for (let i = 0; i < nBase && idx < count; i++) {
     const a = (i / Math.max(nBase, 1)) * Math.PI * 2;
-    const r = Math.sqrt(hash(i * 1.1)) * 0.16;
+    const r = Math.sqrt(hash(i * 1.1)) * 0.15;
     pos[idx * 3] = Math.cos(a) * r;
-    pos[idx * 3 + 1] = -0.95;
+    pos[idx * 3 + 1] = -0.92;
     pos[idx * 3 + 2] = Math.sin(a) * r;
     idx++;
   }
 
-  for (let j = 0; j < nGlow && idx < count; j++) {
-    const d = fibDir(j + 31, Math.max(nGlow, 1));
+  // Subtle outer shell around glass
+  for (let j = 0; j < nShell && idx < count; j++) {
+    const d = fibDir(j + 31, Math.max(nShell, 1));
     let ly = d.y;
-    if (ly < -0.2) ly = -0.2 + (ly + 0.2) * 0.3;
-    const R = 0.95 + hash(j * 0.5) * 0.15;
-    pos[idx * 3] = d.x * R * 0.8;
-    pos[idx * 3 + 1] = ly * R * 0.85 + 0.45;
-    pos[idx * 3 + 2] = d.z * R * 0.8;
+    if (ly < -0.15) ly = -0.15 + (ly + 0.15) * 0.25;
+    const R = 0.92 + hash(j * 0.5) * 0.12;
+    pos[idx * 3] = d.x * R * 0.78;
+    pos[idx * 3 + 1] = ly * R * 0.82 + 0.5;
+    pos[idx * 3 + 2] = d.z * R * 0.78;
     idx++;
   }
 
-  fillRemainder(pos, idx, count, 0.85, 0.8);
+  fillRemainder(pos, idx, count, 0.82, 0.75);
   return pos;
 }
 
-/** Globe / earth-like sphere with continent density bias */
+/** Continent-biased globe sphere */
 export function createGlobe(count) {
   const pos = new Float32Array(count * 3);
   const R = 1.05;
   for (let i = 0; i < count; i++) {
     const d = fibDir(i, count);
-    const n = noise3(d.x * 4, d.y * 4, d.z * 4);
-    const surface = n > -0.15 ? 1.0 : 0.92;
-    const r = R * surface + hash(i) * 0.02;
+    const n = noise3(d.x * 4.5, d.y * 4.5, d.z * 4.5);
+    // Continent-like clustering
+    const surface = n > -0.12 ? 1.0 : 0.9;
+    const r = R * surface + hash(i) * 0.025;
     pos[i * 3] = d.x * r;
     pos[i * 3 + 1] = d.y * r;
     pos[i * 3 + 2] = d.z * r;
@@ -329,21 +336,24 @@ export function createGlobe(count) {
   return pos;
 }
 
+/** Organic compact form — not random noise */
 export function createStructure(count) {
   const pos = new Float32Array(count * 3);
   for (let i = 0; i < count; i++) {
     const d = fibDir(i, count);
-    const n = noise3(d.x * 3, d.y * 3, d.z * 3);
-    const r = 0.7 + n * 0.25 + hash(i) * 0.15;
-    const squash = 1 + Math.sin(d.y * Math.PI) * 0.2;
-    pos[i * 3] = d.x * r * squash;
-    pos[i * 3 + 1] = d.y * r * 1.15;
-    pos[i * 3 + 2] = d.z * r * 0.85;
+    const n = noise3(d.x * 2.8, d.y * 2.8, d.z * 2.8);
+    // Bean / organic compact body
+    const r = 0.72 + n * 0.18 + hash(i) * 0.1;
+    const squashX = 1 + Math.sin(d.y * Math.PI) * 0.18;
+    const squashY = 1.12;
+    const squashZ = 0.88;
+    pos[i * 3] = d.x * r * squashX;
+    pos[i * 3 + 1] = d.y * r * squashY;
+    pos[i * 3 + 2] = d.z * r * squashZ;
   }
   return pos;
 }
 
-/** Reference path: brain → distorted → abstract → bulb → globe → structure */
 export const SHAPE_ORDER = [
   'brain',
   'distorted',
@@ -369,7 +379,7 @@ export function generateShape(name, count) {
   return fn(count);
 }
 
-/** Equal particle counts across all morph targets */
+/** Equal particle counts across all morph targets — reversible morph */
 export function buildMorphTargets(count) {
   return SHAPE_ORDER.map((name) => generateShape(name, count));
 }
